@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(iarc7_motion)
+project(iarc7_planner)
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DROS_ASSERT_ENABLED")
