@@ -1,0 +1,20 @@
+# goal definition
+string frame_id
+
+float64 x_pos_goal
+float64 y_pos_goal
+float64 z_pos_goal
+
+float64 x_vel_goal
+float64 y_vel_goal
+float64 z_vel_goal
+
+float64 x_accel_goal
+float64 y_accel_goal
+float64 z_accel_goal
+---
+#result definition
+bool success
+---
+#feedback
+planning_ros_msgs/Trajectory plan
