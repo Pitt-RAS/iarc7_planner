@@ -4,29 +4,28 @@ project(iarc7_planner)
 #set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror ${CMAKE_CXX_FLAGS}")
 #set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DROS_ASSERT_ENABLED")
 
-## PCL setup
+## Find catkin macros and libraries
+## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
+## is used, also find other catkin packages
+
 find_package(PCL 1.3 REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
-# find_package(catkin REQUIRED COMPONENTS
-# )
-
 find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  iarc7_motion
+  actionlib_msgs
   iarc7_msgs
-  motion_primitive_library
+  iarc7_safety
   nav_msgs
+  roscpp
+  ros_utils
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  motion_primitive_library
   decomp_ros_utils
   planning_ros_utils
-  roscpp
-  rospy
-  std_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -116,12 +115,12 @@ find_package(catkin REQUIRED COMPONENTS
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-# catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES
-#  CATKIN_DEPENDS
-#  DEPENDS
-# )
+ catkin_package(
+   INCLUDE_DIRS include  
+#  LIBRARIES 
+#  CATKIN_DEPENDS 
+#  DEPENDS 
+ )
 
 ###########
 ## Build ##
@@ -130,9 +129,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
-include_directories(
+ include_directories(
   include ${catkin_INCLUDE_DIRS}
-)
+ )
 
 ## Declare a C++ library
 # add_library(
@@ -204,7 +203,9 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
+
 add_executable(test_planner_cloud src/test_planner_cloud.cpp)
 target_link_libraries(test_planner_cloud ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 add_executable(test_planner_voxel_map src/test_planner_voxel_map.cpp)
 target_link_libraries(test_planner_voxel_map ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+
