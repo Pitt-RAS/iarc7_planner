@@ -1,0 +1,52 @@
+# Params for planner
+
+# Timeout for transforms
+transform_timeout       : 0.2
+
+# arena specific constraints
+arena:
+  length: 20.0 # meters
+  width: 20.0 # meters
+  max_height: 3.0 # meters
+
+# obstacle sizes
+obstacle: 
+  height: 2.0 # meters
+  width: 0.5 # meters; actual is 0.33
+  height_buffer: 0.0 # meters
+  side_buffer: 0.0 # meters
+
+# The flags use_xxx will adapt the planning in different control space
+
+# Vel             | Acc             | Jrk             | Snp
+# use_pos = true  | use_pos = true  | use_pos = true  | use_pos = true
+# use_vel = false | use_vel = true  | use_vel = true  | use_vel = true
+# use_acc = false | use_acc = false | use_acc = true  | use_acc = true
+# use_jrk = false | use_jrk = false | use_jrk = false | use_jrk = true
+
+use_pos: true
+use_vel: true
+use_acc: false
+use_jrk: false
+
+dt: 0.0 # dt for each primitive
+
+u_max: 50.0 # max control input
+w: 10000 # weight of time
+epsilon: 2 # greedy param (default equal to 1)
+max_num: 0 # maximum allowed number of expanded nodes (-1 means no limitation)
+
+
+topic: "/cloud"
+range_x: 20
+range_y: 20
+range_z: 5
+
+
+t_max: -1
+use_3d: false
+use_prior: false
+
+num: 3
+
+robot_r: 0.5
