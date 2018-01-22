@@ -36,17 +36,15 @@ w: 10000 # weight of time
 epsilon: 2 # greedy param (default equal to 1)
 max_num: 0 # maximum allowed number of expanded nodes (-1 means no limitation)
 
-
-topic: "/cloud"
+# old params, need replaced with arean params
 range_x: 20
 range_y: 20
 range_z: 5
 
-
+# not sure what these are
 t_max: -1
 use_3d: false
 use_prior: false
-
 num: 3
-
 robot_r: 0.5
+topic: "/cloud"

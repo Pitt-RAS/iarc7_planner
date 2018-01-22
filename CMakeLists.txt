@@ -83,9 +83,11 @@ add_action_files(
 )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-# )
+generate_messages(
+  DEPENDENCIES
+  actionlib_msgs
+  planning_ros_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -205,8 +207,8 @@ add_action_files(
 # catkin_add_nosetests(test)
 
 
-add_executable(test_planner_cloud src/test_planner_cloud.cpp)
+add_executable(test_planner_cloud test/test_planner_cloud.cpp)
 target_link_libraries(test_planner_cloud ${catkin_LIBRARIES} ${PCL_LIBRARIES})
-add_executable(test_planner_voxel_map src/test_planner_voxel_map.cpp)
+add_executable(test_planner_voxel_map test/test_planner_voxel_map.cpp)
 target_link_libraries(test_planner_voxel_map ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
