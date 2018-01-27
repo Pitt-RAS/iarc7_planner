@@ -205,10 +205,3 @@ target_link_libraries(motion_planner
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-
-
-add_executable(test_planner_cloud test/test_planner_cloud.cpp)
-target_link_libraries(test_planner_cloud ${catkin_LIBRARIES} ${PCL_LIBRARIES})
-add_executable(test_planner_voxel_map test/test_planner_voxel_map.cpp)
-target_link_libraries(test_planner_voxel_map ${catkin_LIBRARIES} ${PCL_LIBRARIES})
-

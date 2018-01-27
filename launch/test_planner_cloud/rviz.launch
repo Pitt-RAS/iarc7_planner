@@ -1,9 +1,0 @@
-<launch>
-  <arg name="test" default="test_planner_cloud"/>
-
-  <node pkg="rviz"
-    type="rviz"
-    name="rviz"
-    output="screen"
-    args="-d $(find iarc7_planner)/launch/$(arg test)/test.rviz"/>
-</launch>
