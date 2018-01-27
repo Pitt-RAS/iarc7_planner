@@ -8,5 +8,5 @@
     local-name: ros_utils
     uri: https://github.com/Pitt-RAS/ros_utils.git
 - git: 
-	local-name: mpl_ros
-	uri: https://github.com/sikang/mpl_ros.git
+    local-name: mpl_ros
+    uri: https://github.com/sikang/mpl_ros.git
