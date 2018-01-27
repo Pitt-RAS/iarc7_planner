@@ -143,19 +143,19 @@ generate_messages(
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(iarc7_motion ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(iarc7_planner ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-# add_executable()
+add_executable(motion_planner src/MotionPlanner.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(motion_planner ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(
-#  ${catkin_LIBRARIES}
-# )
+target_link_libraries(motion_planner
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
@@ -198,8 +198,8 @@ generate_messages(
 
 ## Add gtest based cpp test target and link libraries
 # catkin_add_gtest()
-# if(TARGET acceleration_planner_test)
-#  target_link_libraries(acceleration_planner_test ${catkin_LIBRARIES}
+# if(TARGET test)
+#  target_link_libraries(test ${catkin_LIBRARIES}
 # )
 # endif()
 
