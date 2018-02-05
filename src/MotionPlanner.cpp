@@ -7,6 +7,7 @@
 // Requests come into the planner via an action over an action server.
 //
 // Trajectories (plans) are returned back to the requester
+//
 ////////////////////////////////////////////////////////////////////////////
 
 #include <ros/ros.h>
@@ -14,11 +15,11 @@
 #include "actionlib/server/simple_action_server.h"
 
 #include "iarc7_safety/SafetyClient.hpp"
-#include "iarc7_planner/PlanAction.h"
+#include "iarc7_msgs/PlanAction.h"
 
 #include "planning_ros_msgs/Trajectory.h"
 
-typedef actionlib::SimpleActionServer<iarc7_planner::PlanAction> Server;
+typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 
 // Main entry point for the motion planner
 int main(int argc, char **argv)
@@ -81,10 +82,10 @@ int main(int argc, char **argv)
             last_time = current_time;
 
             if (server.isNewGoalAvailable() && !server.isActive()) {
-                const iarc7_planner::PlanGoalConstPtr& goal = server.acceptNewGoal();
+                const iarc7_msgs::PlanGoalConstPtr& goal = server.acceptNewGoal();
                 
-                iarc7_planner::PlanResult result_;
-                iarc7_planner::PlanFeedback feedback_;
+                iarc7_msgs::PlanResult result_;
+                iarc7_msgs::PlanFeedback feedback_;
                 
                 result_.success = true;
                 feedback_.plan.header.frame_id = "/frame_id";
