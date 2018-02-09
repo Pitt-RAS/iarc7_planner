@@ -21,6 +21,9 @@
 
 typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 
+enum class PlannerState {WAITING,
+                         PLANNING};
+
 // Main entry point for the motion planner
 int main(int argc, char **argv)
 {
@@ -51,6 +54,8 @@ int main(int argc, char **argv)
     Server server(nh, "planner_request", false);
     server.start();
 
+    PlannerState state = PlannerState::WAITING;
+
     // Form a connection with the node monitor. If no connection can be made
     // assert because we don't know what's going on with the other nodes.
     ROS_INFO("motion_planner: Attempting to form safety bond");
@@ -73,6 +78,9 @@ int main(int argc, char **argv)
         ROS_ASSERT_MSG(!safety_client.isFatalActive(),
                        "motion_planner: fatal event from safety");
 
+        ROS_ASSERT_MSG(!safety_client.isSafetyActive(),
+                        "Motion_Planner shutdown due to safety active");
+
         // Get the time
         ros::Time current_time = ros::Time::now();
 
@@ -81,18 +89,30 @@ int main(int argc, char **argv)
         if (current_time > last_time) {
             last_time = current_time;
 
-            if (server.isNewGoalAvailable() && !server.isActive()) {
-                const iarc7_msgs::PlanGoalConstPtr& goal = server.acceptNewGoal();
-                
-                iarc7_msgs::PlanResult result_;
-                iarc7_msgs::PlanFeedback feedback_;
-                
-                result_.success = true;
-                feedback_.plan.header.frame_id = "/frame_id";
-                
-                server.setSucceeded(result_);
-                server.publishFeedback(feedback_);
+            if (state == PlannerState::WAITING){
+                // planner node is waiting on a plan request
+                if (server.isNewGoalAvailable() && !server.isActive()) {
+                    state = PlannerState::PLANNING;
+                    const iarc7_msgs::PlanGoalConstPtr& goal = server.acceptNewGoal();
+                    
+                    iarc7_msgs::PlanResult result_;
+                    iarc7_msgs::PlanFeedback feedback_;
+                    
+                    result_.success = true;
+                    feedback_.plan.header.frame_id = "/frame_id";
+                    
+                    server.setSucceeded(result_);
+                    server.publishFeedback(feedback_);
+                }
+
+            } else if (state == PlannerState::PLANNING){
+                //code goes here 
+
+            } else {
+                ROS_ASSERT_MSG(false, "Motion Planner does not know what state to be in");
             }
+
+            
 
             // Check for a safety state in which case we should execute our safety response
             if (safety_client.isSafetyActive()) {

@@ -10,6 +10,7 @@
 - git: 
     local-name: mpl_ros
     uri: https://github.com/sikang/mpl_ros.git
+    version: 2734539
 - git: 
     local-name: catkin_simple
     uri: https://github.com/catkin/catkin_simple.git
