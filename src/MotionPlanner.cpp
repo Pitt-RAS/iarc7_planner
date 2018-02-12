@@ -21,8 +21,9 @@
 
 typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 
-enum class PlannerState {WAITING,
-                         PLANNING};
+
+enum class PlannerState { WAITING,
+                         PLANNING }; 
 
 // Main entry point for the motion planner
 int main(int argc, char **argv)
@@ -54,8 +55,6 @@ int main(int argc, char **argv)
     Server server(nh, "planner_request", false);
     server.start();
 
-    PlannerState state = PlannerState::WAITING;
-
     // Form a connection with the node monitor. If no connection can be made
     // assert because we don't know what's going on with the other nodes.
     ROS_INFO("motion_planner: Attempting to form safety bond");
@@ -68,13 +67,18 @@ int main(int argc, char **argv)
     // Cache the time
     ros::Time last_time = ros::Time::now();
 
+    // update frequency of the node
     ros::Rate rate(update_frequency);
+
+    PlannerState state = PlannerState::WAITING;
+
+    iarc7_msgs::PlanGoalConstPtr goal_; 
 
     // Run until ROS says we need to shutdown
     while (ros::ok()) {
         // Check the safety client before updating anything
-        // If fatal is active the node monitor is telling everyone to shut
-        // down immediately
+        // there is no safety response for this node, so 
+        // shut down. 
         ROS_ASSERT_MSG(!safety_client.isFatalActive(),
                        "motion_planner: fatal event from safety");
 
@@ -88,35 +92,42 @@ int main(int argc, char **argv)
         // time that does not update with high precision.
         if (current_time > last_time) {
             last_time = current_time;
-
-            if (state == PlannerState::WAITING){
-                // planner node is waiting on a plan request
-                if (server.isNewGoalAvailable() && !server.isActive()) {
-                    state = PlannerState::PLANNING;
-                    const iarc7_msgs::PlanGoalConstPtr& goal = server.acceptNewGoal();
-                    
-                    iarc7_msgs::PlanResult result_;
-                    iarc7_msgs::PlanFeedback feedback_;
-                    
-                    result_.success = true;
-                    feedback_.plan.header.frame_id = "/frame_id";
-                    
-                    server.setSucceeded(result_);
-                    server.publishFeedback(feedback_);
+            
+            // get a new goal from action server
+            if (server.isNewGoalAvailable()) {
+                if (server.isActive()) {
+                    ROS_INFO("New goal received with current goal still running");
                 }
-
-            } else if (state == PlannerState::PLANNING){
-                //code goes here 
-
-            } else {
-                ROS_ASSERT_MSG(false, "Motion Planner does not know what state to be in");
+                
+                // planning goal
+                goal_ = server.acceptNewGoal();
+                state = PlannerState::PLANNING;
+                ROS_INFO("New goal accepted by planner");
             }
 
-            
+            // goal was canceled
+            if (server.isPreemptRequested()) {
+                server.setPreempted();
+                ROS_INFO("Preempt requested. Current planning goal was canceled");
+                state = PlannerState::WAITING;
+            }
 
-            // Check for a safety state in which case we should execute our safety response
-            if (safety_client.isSafetyActive()) {
-                break;
+            // able to generate a plan
+            if (state == PlannerState::PLANNING) {
+                
+                iarc7_msgs::PlanResult result_;
+                iarc7_msgs::PlanFeedback feedback_;
+
+                // indicate that planning was successful or not
+                bool success_ = true;
+                
+                // planning here 
+                
+                result_.success = success_;
+                feedback_.plan.header.frame_id = "/frame_id";
+                
+                server.publishFeedback(feedback_);
+
             }
         }
 
