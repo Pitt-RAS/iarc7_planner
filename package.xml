@@ -48,7 +48,6 @@
   <build_depend>tf2_ros</build_depend>
   <build_depend>tf2_geometry_msgs</build_depend>
   <build_depend>iarc7_safety</build_depend>
-  <build_depend>mpl_ros</build_depend>
   <build_depend>decomp_ros_utils</build_depend>
   <build_depend>planning_ros_utils</build_depend>
   <build_depend>planning_ros_msgs</build_depend>
