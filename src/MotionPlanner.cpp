@@ -10,20 +10,50 @@
 //
 ////////////////////////////////////////////////////////////////////////////
 
+// ROS headers
 #include <ros/ros.h>
-
 #include "actionlib/server/simple_action_server.h"
 
+// Safety Client
 #include "iarc7_safety/SafetyClient.hpp"
-#include "iarc7_msgs/PlanAction.h"
 
+// message headers
+#include "iarc7_msgs/PlanAction.h"
 #include "planning_ros_msgs/Trajectory.h"
 
 typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 
-
 enum class PlannerState { WAITING,
                          PLANNING }; 
+
+bool checkGoal(iarc7_msgs::PlanGoalConstPtr goal_, double kc[3], double arena[3] ){
+    if (goal_->x_pos_goal > arena[0]
+        || goal_->y_pos_goal > arena[1]
+        || goal_->z_pos_goal > arena[2]){
+
+        ROS_ERROR("Goal provided to planner is beyond arena limits");
+        return false;
+    }
+    
+    if (std::max({goal_->x_vel_goal, 
+                  goal_->y_vel_goal, 
+                  goal_->z_vel_goal}) > kc[0]) {
+
+        ROS_ERROR("Goal provided to planner is beyond platform velocity limits");
+        return false;
+    }
+
+    if (std::max({goal_->x_accel_goal, 
+                  goal_->y_accel_goal, 
+                  goal_->z_accel_goal}) > kc[2]) {
+
+        ROS_ERROR("Goal provided to planner is beyond platform acceleration limits");
+        return false;
+    }
+
+    return true;
+
+}
 
 // Main entry point for the motion planner
 int main(int argc, char **argv)
@@ -43,8 +73,24 @@ int main(int argc, char **argv)
     // LOAD PARAMETERS
     double update_frequency;
 
+    // speed, acceleration, jerk limits
+    double kinematic_constraints[3];
+
+    // x, y, z arena limits
+    double arena_limits[3];
+
     // Update frequency retrieve
     private_nh.param("update_frequency", update_frequency, 60.0);
+
+    // kinematic constraints retrieve
+    private_nh.param("max_speed", kinematic_constraints[0], 3.0);
+    private_nh.param("max_acceleration", kinematic_constraints[1], 5.0);
+    private_nh.param("max_jerk", kinematic_constraints[2], 10.0);
+
+    // arena size/limits retrieve
+    private_nh.param("arena/length", kinematic_constraints[0], 3.0);
+    private_nh.param("arena/width", kinematic_constraints[1], 3.0);
+    private_nh.param("arena/height", kinematic_constraints[2], 3.0);
 
     // Wait for a valid time in case we are using simulated time (not wall time)
     while (ros::ok() && ros::Time::now() == ros::Time(0)) {
@@ -122,9 +168,15 @@ int main(int argc, char **argv)
                 bool success_ = true;
                 
                 // planning here 
-                
+
+                if (!checkGoal(goal_, kinematic_constraints, arena_limits)) {
+                    ROS_ERROR("Planner aborting requested gaol");
+                    server.setAborted();
+                    state = PlannerState::WAITING;
+                }
+
                 result_.success = success_;
-                feedback_.plan.header.frame_id = "/frame_id";
+                feedback_.plan.header.frame_id = "/map";
                 
                 server.publishFeedback(feedback_);
 

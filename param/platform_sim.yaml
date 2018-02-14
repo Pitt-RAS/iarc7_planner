@@ -4,7 +4,7 @@ buffer: 0.2 # meters
 
 # kinematic constraints
 max_speed: 3.0 # m/s
-max_acceleration: 1.0 # m/s^2
+max_acceleration: 5.0 # m/s^2
 max_jerk: 15.0 # m/s^3
 
 # Minimum height for any XY translationanl maneuvers, meters
