@@ -17,6 +17,7 @@ obstacle:
   side_buffer: 0.0 # meters
 
 # The flags use_xxx will adapt the planning in different control space
+# taken from motion primitive library README
 
 # Vel             | Acc             | Jrk             | Snp
 # use_pos = true  | use_pos = true  | use_pos = true  | use_pos = true

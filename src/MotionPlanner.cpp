@@ -19,7 +19,6 @@
 
 // message headers
 #include "iarc7_msgs/PlanAction.h"
-#include "planning_ros_msgs/Trajectory.h"
 
 typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 
@@ -176,7 +175,6 @@ int main(int argc, char **argv)
                 }
 
                 result_.success = success_;
-                feedback_.plan.header.frame_id = "/map";
                 
                 server.publishFeedback(feedback_);
 
