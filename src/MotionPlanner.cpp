@@ -19,42 +19,52 @@
 
 // message headers
 #include "iarc7_msgs/PlanAction.h"
+#include "iarc7_msgs/MotionPoint.h"
+#include "geometry_msgs/Pose.h"
+#include "geometry_msgs/Twist.h"
+#include "geometry_msgs/Accel.h"
+
+using geometry_msgs::Pose;
+using geometry_msgs::Twist;
+using geometry_msgs::Accel;
 
 typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 
 enum class PlannerState { WAITING,
-                         PLANNING }; 
+                         PLANNING };
 
-bool checkGoal(iarc7_msgs::PlanGoalConstPtr goal_, double kinematic_constraints[3], 
-                                                    double max_arena[3], 
-                                                    double min_arena[3]) {
-    if (goal_->x_pos_goal > max_arena[0]
-        || goal_->y_pos_goal > max_arena[1]
-        || goal_->z_pos_goal > max_arena[2]){
+bool checkGoal(Pose& pose_goal, Twist& twist_goal,
+                                Accel& accel_goal,
+                                double kinematic_constraints[3],
+                                double max_arena[3],
+                                double min_arena[3]) {
+    if (pose_goal.position.x > max_arena[0]
+        || pose_goal.position.y > max_arena[1]
+        || pose_goal.position.z > max_arena[2]){
 
         ROS_ERROR("Goal provided to planner is above arena limits");
         return false;
     }
 
-    if (goal_->x_pos_goal < min_arena[0]
-        || goal_->y_pos_goal < min_arena[1]
-        || goal_->z_pos_goal < min_arena[2]){
+    if (pose_goal.position.x < min_arena[0]
+        || pose_goal.position.z < min_arena[1]
+        || pose_goal.position.z < min_arena[2]){
 
         ROS_ERROR("Goal provided to planner is below arena limits");
         return false;
     }
     
-    if (std::max({goal_->x_vel_goal, 
-                  goal_->y_vel_goal, 
-                  goal_->z_vel_goal}) > kinematic_constraints[0]) {
+    if (std::max({twist_goal.linear.x,
+                  twist_goal.linear.y,
+                  twist_goal.linear.z}) > kinematic_constraints[0]) {
 
         ROS_ERROR("Goal provided to planner is beyond platform velocity limits");
         return false;
     }
 
-    if (std::max({goal_->x_accel_goal, 
-                  goal_->y_accel_goal, 
-                  goal_->z_accel_goal}) > kinematic_constraints[1]) {
+    if (std::max({accel_goal.linear.x,
+                  accel_goal.linear.y,
+                  accel_goal.linear.z}) > kinematic_constraints[1]) {
 
         ROS_ERROR("Goal provided to planner is beyond platform acceleration limits");
         return false;
@@ -94,18 +104,18 @@ int main(int argc, char **argv)
     private_nh.param("planner_update_frequency", update_frequency, 60.0);
 
     // kinematic constraints retrieve
-    private_nh.param("max_speed", kinematic_constraints[0], 3.0);
-    private_nh.param("max_acceleration", kinematic_constraints[1], 5.0);
-    private_nh.param("max_jerk", kinematic_constraints[2], 10.0);
+    ROS_ASSERT(private_nh.param("max_speed", kinematic_constraints[0]));
+    ROS_ASSERT(private_nh.param("max_acceleration", kinematic_constraints[1]));
+    ROS_ASSERT(private_nh.param("max_jerk", kinematic_constraints[2]));
 
     // arena size/limits retrieve
-    private_nh.param("/arena/max_x", max_arena_limits[0], 3.0);
-    private_nh.param("/arena/max_y", max_arena_limits[1], 3.0);
-    private_nh.param("/arena/max_z", max_arena_limits[2], 3.0);
+    ROS_ASSERT(private_nh.param("/arena/max_x", max_arena_limits[0]));
+    ROS_ASSERT(private_nh.param("/arena/max_y", max_arena_limits[1]));
+    ROS_ASSERT(private_nh.param("/arena/max_z", max_arena_limits[2]));
     
-    private_nh.param("/arena/min_x", min_arena_limits[0], 0.0);
-    private_nh.param("/arena/min_y", min_arena_limits[1], 0.0);
-    private_nh.param("/arena/min_z", min_arena_limits[2], 0.0);
+    ROS_ASSERT(private_nh.param("/arena/min_x", min_arena_limits[0]));
+    ROS_ASSERT(private_nh.param("/arena/min_y", min_arena_limits[1]));
+    ROS_ASSERT(private_nh.param("/arena/min_z", min_arena_limits[2]));
 
     // Wait for a valid time in case we are using simulated time (not wall time)
     while (ros::ok() && ros::Time::now() == ros::Time(0)) {
@@ -135,6 +145,10 @@ int main(int argc, char **argv)
     PlannerState state = PlannerState::WAITING;
 
     iarc7_msgs::PlanGoalConstPtr goal_; 
+
+    Pose pose_goal;
+    Twist twist_goal;
+    Accel accel_goal;
 
     // Run until ROS says we need to shutdown
     while (ros::ok()) {
@@ -167,14 +181,18 @@ int main(int argc, char **argv)
                 if (server.isActive()) {
                     ROS_INFO("New goal received with current goal still running");
                 }
-                
+
                 // planning goal
                 goal_ = server.acceptNewGoal();
 
-                if (!checkGoal(goal_, kinematic_constraints, 
+                pose_goal = goal_->goal.motion_point.pose;
+                twist_goal = goal_->goal.motion_point.twist;
+                accel_goal = goal_->goal.motion_point.accel;
+
+                if (!checkGoal(pose_goal, twist_goal, accel_goal,
+                                        kinematic_constraints,
                                         max_arena_limits,
                                         min_arena_limits)) {
-                    
                     ROS_ERROR("Planner aborting requested gaol");
                     server.setAborted();
                     state = PlannerState::WAITING;
@@ -193,7 +211,7 @@ int main(int argc, char **argv)
                 // indicate that planning was successful or not
                 bool success_ = true;
                 
-                // planning calls will go here 
+                // planning calls will go here
 
                 result_.success = success_;
                 
