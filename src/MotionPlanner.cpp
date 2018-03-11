@@ -6,7 +6,7 @@
 //
 // Requests come into the planner via an action over an action server.
 //
-// Trajectories (plans) are returned back to the requester
+// Motion Point Stamped Arrays (plans) are returned back to the requester
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -44,14 +44,13 @@ bool checkGoal(iarc7_msgs::PlanGoalConstPtr goal_, double kc[3], double arena[3]
 
     if (std::max({goal_->x_accel_goal, 
                   goal_->y_accel_goal, 
-                  goal_->z_accel_goal}) > kc[2]) {
+                  goal_->z_accel_goal}) > kc[1]) {
 
         ROS_ERROR("Goal provided to planner is beyond platform acceleration limits");
         return false;
     }
 
     return true;
-
 }
 
 // Main entry point for the motion planner
@@ -138,6 +137,13 @@ int main(int argc, char **argv)
         if (current_time > last_time) {
             last_time = current_time;
             
+            // goal was canceled
+            if (server.isPreemptRequested()) {
+                server.setPreempted();
+                ROS_INFO("Preempt requested. Current planning goal was canceled");
+                state = PlannerState::WAITING;
+            }
+
             // get a new goal from action server
             if (server.isNewGoalAvailable()) {
                 if (server.isActive()) {
@@ -150,13 +156,6 @@ int main(int argc, char **argv)
                 ROS_INFO("New goal accepted by planner");
             }
 
-            // goal was canceled
-            if (server.isPreemptRequested()) {
-                server.setPreempted();
-                ROS_INFO("Preempt requested. Current planning goal was canceled");
-                state = PlannerState::WAITING;
-            }
-
             // able to generate a plan
             if (state == PlannerState::PLANNING) {
                 
@@ -166,18 +165,18 @@ int main(int argc, char **argv)
                 // indicate that planning was successful or not
                 bool success_ = true;
                 
-                // planning here 
+                // planning calls will go here 
 
                 if (!checkGoal(goal_, kinematic_constraints, arena_limits)) {
                     ROS_ERROR("Planner aborting requested gaol");
                     server.setAborted();
                     state = PlannerState::WAITING;
+                    success_ = false;
                 }
 
                 result_.success = success_;
                 
                 server.publishFeedback(feedback_);
-
             }
         }
 
