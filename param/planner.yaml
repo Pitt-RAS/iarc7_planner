@@ -1,0 +1,21 @@
+# Params for planner
+
+# Timeout for transforms
+transform_timeout       : 0.2
+
+# update frequency 
+planner_update_frequency : 60.0
+
+# The flags use_xxx will adapt the planning in different control space
+# taken from motion primitive library README
+
+# Vel             | Acc             | Jrk             | Snp
+# use_pos = true  | use_pos = true  | use_pos = true  | use_pos = true
+# use_vel = false | use_vel = true  | use_vel = true  | use_vel = true
+# use_acc = false | use_acc = false | use_acc = true  | use_acc = true
+# use_jrk = false | use_jrk = false | use_jrk = false | use_jrk = true
+
+use_pos: true
+use_vel: true
+use_acc: true
+use_jrk: false
