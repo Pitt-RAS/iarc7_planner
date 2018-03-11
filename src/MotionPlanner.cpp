@@ -54,17 +54,17 @@ bool checkGoal(Pose& pose_goal, Twist& twist_goal,
         return false;
     }
     
-    if (std::max({abs(twist_goal.linear.x),
-                  abs(twist_goal.linear.y),
-                  abs(twist_goal.linear.z)}) > kinematic_constraints[0]) {
+    if (std::max({std::abs(twist_goal.linear.x),
+                  std::abs(twist_goal.linear.y),
+                  std::abs(twist_goal.linear.z)}) > kinematic_constraints[0]) {
 
         ROS_ERROR("Goal provided to planner is beyond platform velocity limits");
         return false;
     }
 
-    if (std::max({abs(accel_goal.linear.x),
-                  abs(accel_goal.linear.y),
-                  abs(accel_goal.linear.z)}) > kinematic_constraints[1]) {
+    if (std::max({std::abs(accel_goal.linear.x),
+                  std::abs(accel_goal.linear.y),
+                  std::abs(accel_goal.linear.z)}) > kinematic_constraints[1]) {
 
         ROS_ERROR("Goal provided to planner is beyond platform acceleration limits");
         return false;
