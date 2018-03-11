@@ -101,21 +101,21 @@ int main(int argc, char **argv)
     double min_arena_limits[3];
 
     // Update frequency retrieve
-    private_nh.param("planner_update_frequency", update_frequency, 60.0);
+    ROS_ASSERT(private_nh.getParam("planner_update_frequency", update_frequency));
 
     // kinematic constraints retrieve
-    ROS_ASSERT(private_nh.param("max_speed", kinematic_constraints[0]));
-    ROS_ASSERT(private_nh.param("max_acceleration", kinematic_constraints[1]));
-    ROS_ASSERT(private_nh.param("max_jerk", kinematic_constraints[2]));
+    ROS_ASSERT(private_nh.getParam("max_speed", kinematic_constraints[0]));
+    ROS_ASSERT(private_nh.getParam("max_acceleration", kinematic_constraints[1]));
+    ROS_ASSERT(private_nh.getParam("max_jerk", kinematic_constraints[2]));
 
     // arena size/limits retrieve
-    ROS_ASSERT(private_nh.param("/arena/max_x", max_arena_limits[0]));
-    ROS_ASSERT(private_nh.param("/arena/max_y", max_arena_limits[1]));
-    ROS_ASSERT(private_nh.param("/arena/max_z", max_arena_limits[2]));
+    ROS_ASSERT(private_nh.getParam("/arena/max_x", max_arena_limits[0]));
+    ROS_ASSERT(private_nh.getParam("/arena/max_y", max_arena_limits[1]));
+    ROS_ASSERT(private_nh.getParam("/arena/max_z", max_arena_limits[2]));
     
-    ROS_ASSERT(private_nh.param("/arena/min_x", min_arena_limits[0]));
-    ROS_ASSERT(private_nh.param("/arena/min_y", min_arena_limits[1]));
-    ROS_ASSERT(private_nh.param("/arena/min_z", min_arena_limits[2]));
+    ROS_ASSERT(private_nh.getParam("/arena/min_x", min_arena_limits[0]));
+    ROS_ASSERT(private_nh.getParam("/arena/min_y", min_arena_limits[1]));
+    ROS_ASSERT(private_nh.getParam("/arena/min_z", min_arena_limits[2]));
 
     // Wait for a valid time in case we are using simulated time (not wall time)
     while (ros::ok() && ros::Time::now() == ros::Time(0)) {
