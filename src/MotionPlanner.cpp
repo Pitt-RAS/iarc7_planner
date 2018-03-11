@@ -25,18 +25,28 @@ typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 enum class PlannerState { WAITING,
                          PLANNING }; 
 
-bool checkGoal(iarc7_msgs::PlanGoalConstPtr goal_, double kc[3], double arena[3] ){
-    if (goal_->x_pos_goal > arena[0]
-        || goal_->y_pos_goal > arena[1]
-        || goal_->z_pos_goal > arena[2]){
+bool checkGoal(iarc7_msgs::PlanGoalConstPtr goal_, double kinematic_constraints[3], 
+                                                    double max_arena[3], 
+                                                    double min_arena[3]) {
+    if (goal_->x_pos_goal > max_arena[0]
+        || goal_->y_pos_goal > max_arena[1]
+        || goal_->z_pos_goal > max_arena[2]){
 
-        ROS_ERROR("Goal provided to planner is beyond arena limits");
+        ROS_ERROR("Goal provided to planner is above arena limits");
+        return false;
+    }
+
+    if (goal_->x_pos_goal < min_arena[0]
+        || goal_->y_pos_goal < min_arena[1]
+        || goal_->z_pos_goal < min_arena[2]){
+
+        ROS_ERROR("Goal provided to planner is below arena limits");
         return false;
     }
     
     if (std::max({goal_->x_vel_goal, 
                   goal_->y_vel_goal, 
-                  goal_->z_vel_goal}) > kc[0]) {
+                  goal_->z_vel_goal}) > kinematic_constraints[0]) {
 
         ROS_ERROR("Goal provided to planner is beyond platform velocity limits");
         return false;
@@ -44,7 +54,7 @@ bool checkGoal(iarc7_msgs::PlanGoalConstPtr goal_, double kc[3], double arena[3]
 
     if (std::max({goal_->x_accel_goal, 
                   goal_->y_accel_goal, 
-                  goal_->z_accel_goal}) > kc[1]) {
+                  goal_->z_accel_goal}) > kinematic_constraints[1]) {
 
         ROS_ERROR("Goal provided to planner is beyond platform acceleration limits");
         return false;
@@ -74,11 +84,14 @@ int main(int argc, char **argv)
     // speed, acceleration, jerk limits
     double kinematic_constraints[3];
 
-    // x, y, z arena limits
-    double arena_limits[3];
+    // max x, y, z arena limits
+    double max_arena_limits[3];
+
+    // min x, y, z arena limits
+    double min_arena_limits[3];
 
     // Update frequency retrieve
-    private_nh.param("update_frequency", update_frequency, 60.0);
+    private_nh.param("planner_update_frequency", update_frequency, 60.0);
 
     // kinematic constraints retrieve
     private_nh.param("max_speed", kinematic_constraints[0], 3.0);
@@ -86,14 +99,19 @@ int main(int argc, char **argv)
     private_nh.param("max_jerk", kinematic_constraints[2], 10.0);
 
     // arena size/limits retrieve
-    private_nh.param("arena/length", kinematic_constraints[0], 3.0);
-    private_nh.param("arena/width", kinematic_constraints[1], 3.0);
-    private_nh.param("arena/height", kinematic_constraints[2], 3.0);
+    private_nh.param("/arena/max_x", max_arena_limits[0], 3.0);
+    private_nh.param("/arena/max_y", max_arena_limits[1], 3.0);
+    private_nh.param("/arena/max_z", max_arena_limits[2], 3.0);
+    
+    private_nh.param("/arena/min_x", min_arena_limits[0], 0.0);
+    private_nh.param("/arena/min_y", min_arena_limits[1], 0.0);
+    private_nh.param("/arena/min_z", min_arena_limits[2], 0.0);
 
     // Wait for a valid time in case we are using simulated time (not wall time)
     while (ros::ok() && ros::Time::now() == ros::Time(0)) {
         // wait
         ros::spinOnce();
+        ros::Duration(.005).sleep();
     }
 
     Server server(nh, "planner_request", false);
@@ -138,7 +156,7 @@ int main(int argc, char **argv)
             last_time = current_time;
             
             // goal was canceled
-            if (server.isPreemptRequested()) {
+            if (server.isPreemptRequested() && state == PlannerState::PLANNING) {
                 server.setPreempted();
                 ROS_INFO("Preempt requested. Current planning goal was canceled");
                 state = PlannerState::WAITING;
@@ -152,8 +170,18 @@ int main(int argc, char **argv)
                 
                 // planning goal
                 goal_ = server.acceptNewGoal();
-                state = PlannerState::PLANNING;
-                ROS_INFO("New goal accepted by planner");
+
+                if (!checkGoal(goal_, kinematic_constraints, 
+                                        max_arena_limits,
+                                        min_arena_limits)) {
+                    
+                    ROS_ERROR("Planner aborting requested gaol");
+                    server.setAborted();
+                    state = PlannerState::WAITING;
+                } else {
+                    state = PlannerState::PLANNING;
+                    ROS_INFO("New goal accepted by planner");
+                }
             }
 
             // able to generate a plan
@@ -166,13 +194,6 @@ int main(int argc, char **argv)
                 bool success_ = true;
                 
                 // planning calls will go here 
-
-                if (!checkGoal(goal_, kinematic_constraints, arena_limits)) {
-                    ROS_ERROR("Planner aborting requested gaol");
-                    server.setAborted();
-                    state = PlannerState::WAITING;
-                    success_ = false;
-                }
 
                 result_.success = success_;
                 

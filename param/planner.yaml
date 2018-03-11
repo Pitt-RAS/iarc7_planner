@@ -3,18 +3,8 @@
 # Timeout for transforms
 transform_timeout       : 0.2
 
-# arena specific constraints
-arena:
-  length: 20.0 # meters
-  width: 20.0 # meters
-  max_height: 3.0 # meters
-
-# obstacle sizes
-obstacle: 
-  height: 2.0 # meters
-  width: 0.5 # meters; actual is 0.33
-  height_buffer: 0.0 # meters
-  side_buffer: 0.0 # meters
+# update frequency 
+planner_update_frequency : 60.0
 
 # The flags use_xxx will adapt the planning in different control space
 # taken from motion primitive library README
