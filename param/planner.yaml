@@ -17,5 +17,5 @@ planner_update_frequency : 60.0
 
 use_pos: true
 use_vel: true
-use_acc: false
+use_acc: true
 use_jrk: false
