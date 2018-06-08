@@ -19,3 +19,9 @@ use_pos: true
 use_vel: true
 use_acc: true
 use_jrk: false
+
+dt: 0.2
+ndt: 1000
+eps: 10.0
+num: 3
+max_num: -1 # no limit
