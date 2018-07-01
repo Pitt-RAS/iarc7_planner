@@ -47,6 +47,7 @@ typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 
 enum class PlannerState { WAITING, PLANNING };
 
+
 void generateVoxelMap(planning_ros_msgs::VoxelMap &voxel_map,
                       const iarc7_msgs::ObstacleArray &obstacles) {
     ros::Time t1 = ros::Time::now();
@@ -139,58 +140,6 @@ void getMap(std::shared_ptr<MPL::VoxelMapUtil> &map_util,
     map.data = map_util->getMap();
 }
 
-
-
-void get_map_util(std::shared_ptr<MPL::VoxelMapUtil> &map_util,
-                  planning_ros_msgs::VoxelMap &map,
-                  double map_res,
-                  double min_arena_limits[3],
-                  double max_arena_limits[3]) {
-    ros::Time t1 = ros::Time::now();
-
-    map.resolution = map_res;
-
-    map.origin.x = min_arena_limits[0];
-    map.origin.y = min_arena_limits[1];
-    map.origin.z = min_arena_limits[2];
-
-    map.dim.x = max_arena_limits[0];
-    map.dim.y = max_arena_limits[1];
-    map.dim.z = max_arena_limits[2];
-
-    std::vector<int8_t> data(map.dim.x*map.dim.y*map.dim.z, 0);
-    map.data = data;
-
-    iarc7_msgs::ObstacleArray obstacles;
-
-    iarc7_msgs::Obstacle new_obstacle;
-    new_obstacle.pipe_height = 2.0;
-    new_obstacle.pipe_radius = 1.0;
-    new_obstacle.odom.pose.pose.position.x = 9;
-    new_obstacle.odom.pose.pose.position.y = 11;
-    new_obstacle.odom.pose.pose.position.z = 0;
-    obstacles.obstacles.push_back(new_obstacle);
-
-    for (double i = 0; i < 2; i += 0.8) {
-        new_obstacle.pipe_height = 2.0;
-        new_obstacle.pipe_radius = 1.0;
-        new_obstacle.odom.pose.pose.position.x = 15 - i * 2;
-        new_obstacle.odom.pose.pose.position.y = 15 + 0.5 * i;
-        new_obstacle.odom.pose.pose.position.z = 0;
-        obstacles.obstacles.push_back(new_obstacle);
-    }
-
-    generateVoxelMap(map, obstacles);
-
-    // Initialize map util
-    setMap(map_util, map);
-
-    // Free unknown space and dilate obstacles
-    map_util->freeUnknown();
-    // map_util->dilate(0.2, 0.1);
-
-    ROS_INFO("Takes %f sec for building map", (ros::Time::now() - t1).toSec());
-}
 
 
 
@@ -351,16 +300,28 @@ int main(int argc, char **argv) {
     ros::Publisher traj_pub = nh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
     ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("cloud", 1, true);
 
-    // Cache the time
-    ros::Time last_time = ros::Time::now();
-
-    iarc7_msgs::PlanGoalConstPtr goal_;
-
-    Pose pose_goal;
-    Twist twist_goal;
-    Accel accel_goal;
-
     std::shared_ptr<MPL::VoxelMapUtil> map_util(new MPL::VoxelMapUtil);
+
+
+    planning_ros_msgs::VoxelMap map;
+
+    ros::Time start_map = ros::Time::now();
+
+    map.resolution = map_res;
+
+    map.origin.x = min_arena_limits[0];
+    map.origin.y = min_arena_limits[1];
+    map.origin.z = min_arena_limits[2];
+
+    map.dim.x = max_arena_limits[0];
+    map.dim.y = max_arena_limits[1];
+    map.dim.z = max_arena_limits[2];
+
+    std::vector<int8_t> data(map.dim.x*map.dim.y*map.dim.z, 0);
+    map.data = data;
+
+    // Initialize map util
+    setMap(map_util, map);
 
     // initialize planner
     std::unique_ptr<MPMap3DUtil> planner;
@@ -376,13 +337,22 @@ int main(int argc, char **argv) {
     planner->setU(U);
     planner->setTol(tolerances[0]);
 
+    iarc7_msgs::PlanGoalConstPtr goal_;
+
+    Pose pose_goal;
+    Twist twist_goal;
+    Accel accel_goal;
+
     // Form a connection with the node monitor. If no connection can be made
     // assert because we don't know what's going on with the other nodes.
     // ROS_INFO("Motion_Planner: Attempting to form safety bond");
+
     // Iarc7Safety::SafetyClient safety_client(nh, "motion_planner");
+
     // ROS_ASSERT_MSG(safety_client.formBond(),"Motion_Planner: Could not form bond with safety client");
 
-    // ROS_ERROR("BOND MADE");
+    // Cache the time
+    ros::Time last_time = ros::Time::now();
 
     ros::Rate rate(update_frequency);
 
@@ -446,10 +416,50 @@ int main(int argc, char **argv) {
                 iarc7_msgs::PlanResult result_;
                 iarc7_msgs::PlanFeedback feedback_;
 
-                planning_ros_msgs::VoxelMap map;
+                ros::Time start_map = ros::Time::now();
 
-                std::shared_ptr<MPL::VoxelMapUtil> map_util(new MPL::VoxelMapUtil);
-                get_map_util(map_util, map, map_res, min_arena_limits, max_arena_limits);
+                map.resolution = map_res;
+
+                map.origin.x = min_arena_limits[0];
+                map.origin.y = min_arena_limits[1];
+                map.origin.z = min_arena_limits[2];
+
+                map.dim.x = max_arena_limits[0];
+                map.dim.y = max_arena_limits[1];
+                map.dim.z = max_arena_limits[2];
+
+                std::vector<int8_t> data(map.dim.x*map.dim.y*map.dim.z, 0);
+                map.data = data;
+
+                iarc7_msgs::ObstacleArray obstacles;
+
+                iarc7_msgs::Obstacle new_obstacle;
+                new_obstacle.pipe_height = 2.0;
+                new_obstacle.pipe_radius = 1.0;
+                new_obstacle.odom.pose.pose.position.x = 9;
+                new_obstacle.odom.pose.pose.position.y = 11;
+                new_obstacle.odom.pose.pose.position.z = 0;
+                obstacles.obstacles.push_back(new_obstacle);
+
+                for (double i = 0; i < 2; i += 0.8) {
+                    new_obstacle.pipe_height = 2.0;
+                    new_obstacle.pipe_radius = 1.0;
+                    new_obstacle.odom.pose.pose.position.x = 15 - i * 2;
+                    new_obstacle.odom.pose.pose.position.y = 15 + 0.5 * i;
+                    new_obstacle.odom.pose.pose.position.z = 0;
+                    obstacles.obstacles.push_back(new_obstacle);
+                }
+
+                generateVoxelMap(map, obstacles);
+
+                // Initialize map util
+                setMap(map_util, map);
+
+                // Free unknown space and dilate obstacles
+                map_util->freeUnknown();
+                // map_util->dilate(0.2, 0.1);
+
+                ROS_INFO("Takes %f sec for building map", (ros::Time::now() - start_map).toSec());
 
                 // Publish the dilated map for visualization
                 getMap(map_util, map);
@@ -483,8 +493,9 @@ int main(int argc, char **argv) {
                 goal.use_acc = use_acc;
                 goal.use_jrk = use_jrk;
 
-                planner.reset(new MPMap3DUtil(true));
                 planner->setMapUtil(map_util);
+                planner->setU(U);
+                planner->setUmax(u_max);
 
                 // now we can plan
                 ros::Time t0 = ros::Time::now();
@@ -508,8 +519,7 @@ int main(int argc, char **argv) {
 
                 server.publishFeedback(feedback_);
 
-                if (valid)
-                    state = PlannerState::WAITING;
+                state = PlannerState::WAITING;
             }
         }
 
