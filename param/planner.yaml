@@ -1,9 +1,9 @@
-# Params for planner
+# PARAMS FOR GRAPH SEARCH PLANNER
 
 # Timeout for transforms
 transform_timeout       : 0.2
 
-# update frequency 
+# update frequency
 planner_update_frequency : 60.0
 
 # The flags use_xxx will adapt the planning in different control space
@@ -15,13 +15,30 @@ planner_update_frequency : 60.0
 # use_acc = false | use_acc = false | use_acc = true  | use_acc = true
 # use_jrk = false | use_jrk = false | use_jrk = false | use_jrk = true
 
+arena:
+    max_x: 10.0 # meters
+    max_y: 10.0 # meters
+    max_z: 3.0 # meters
+
+    min_x: -10.0 # meters
+    min_y: -10.0 # meters
+    min_z: 0.0 # meters
+
 use_pos: true
 use_vel: true
 use_acc: true
 use_jrk: false
 
-dt: 0.2
+# time discretization for each primitive
+dt: 0.26
 ndt: 1000
 eps: 10.0
-num: 3
-max_num: -1 # no limit
+
+# control discretization
+num: 1
+
+# maximum number of allowed expansion; -1 means no limit
+max_num: 5000
+
+# resolution to generate map at
+map_res: .25
