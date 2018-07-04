@@ -21,7 +21,6 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   tf2_geometry_msgs
   motion_primitive_library
-  decomp_ros_utils
   planning_ros_utils
   planning_ros_msgs
 )

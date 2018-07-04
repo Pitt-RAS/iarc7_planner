@@ -21,6 +21,8 @@
 #include "geometry_msgs/Accel.h"
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Twist.h"
+#include "geometry_msgs/Point.h"
+#include "geometry_msgs/Vector3.h"
 
 #include "nav_msgs/Odometry.h"
 
@@ -42,134 +44,40 @@ using iarc7_msgs::MotionPointStamped;
 using geometry_msgs::Accel;
 using geometry_msgs::Pose;
 using geometry_msgs::Twist;
+using geometry_msgs::Vector3;
+using geometry_msgs::Point;
 
 typedef actionlib::SimpleActionServer<iarc7_msgs::PlanAction> Server;
 
 enum class PlannerState { WAITING, PLANNING };
 
 
-void generateVoxelMap(planning_ros_msgs::VoxelMap &voxel_map,
-                      const iarc7_msgs::ObstacleArray &obstacles) {
-    ros::Time t1 = ros::Time::now();
-
-    sensor_msgs::PointCloud cloud;
-
-    // Generate cloud from obstacle data
-    ROS_INFO("Number of obstacles: [%zu]", obstacles.obstacles.size());
-    cloud.header.stamp = ros::Time::now();
-    cloud.header.frame_id = "cloud";
-    cloud.channels.resize(1);
-
-    Vec3f voxel_map_origin;
-    voxel_map_origin(0) = voxel_map.origin.x;
-    voxel_map_origin(1) = voxel_map.origin.y;
-    voxel_map_origin(2) = voxel_map.origin.z;
-
-    ROS_INFO("Mapping obstacles to the cloud");
-    for (auto &obstacle : obstacles.obstacles) {
-        // Map each obstacle to the cloud
-
-        float pipe_radius = obstacle.pipe_radius;
-        float pipe_height = obstacle.pipe_height;
-        float pipe_x = obstacle.odom.pose.pose.position.x;
-        float pipe_y = obstacle.odom.pose.pose.position.y;
-        float px, py, pz;
-        for (pz = voxel_map_origin(2); pz <= pipe_height; pz += 0.1) {
-            for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
-                for (float r = pipe_radius - voxel_map.resolution;
-                     r < pipe_radius; r += voxel_map.resolution) {
-                    px = r * cos(theta) + pipe_x + voxel_map_origin(0);
-                    py = r * sin(theta) + pipe_y + voxel_map_origin(1);
-                    geometry_msgs::Point32 point;
-                    point.x = px;
-                    point.y = py;
-                    point.z = pz;
-                    cloud.points.push_back(point);
-                }
-            }
-        }
-    }
-
-    ROS_INFO("Takes %f sec for mapping obstalces",
-             (ros::Time::now() - t1).toSec());
-
-    t1 = ros::Time::now();
-
-    vec_Vec3f pts = cloud_to_vec(cloud);
-
-    ROS_INFO("Takes %f sec for cloud to vec", (ros::Time::now() - t1).toSec());
-
-    Vec3f voxel_map_dim;
-    voxel_map_dim(0) = voxel_map.dim.x * voxel_map.resolution;
-    voxel_map_dim(1) = voxel_map.dim.y * voxel_map.resolution;
-    voxel_map_dim(2) = voxel_map.dim.z * voxel_map.resolution;
-
-    std::unique_ptr<VoxelGrid> voxel_grid(
-        new VoxelGrid(voxel_map_origin, voxel_map_dim, voxel_map.resolution));
-    voxel_grid->addCloud(pts);
-
-    voxel_map = voxel_grid->getMap();
-    voxel_map.header = cloud.header;
-}
-
-void setMap(std::shared_ptr<MPL::VoxelMapUtil> &map_util,
-            const planning_ros_msgs::VoxelMap &msg) {
-    Vec3f ori(msg.origin.x, msg.origin.y, msg.origin.z);
-    Vec3i dim(msg.dim.x, msg.dim.y, msg.dim.z);
-    decimal_t res = msg.resolution;
-    std::vector<signed char> map = msg.data;
-
-    map_util->setMap(ori, dim, map, res);
-}
-
-void getMap(std::shared_ptr<MPL::VoxelMapUtil> &map_util,
-            planning_ros_msgs::VoxelMap &map) {
-    Vec3f ori = map_util->getOrigin();
-    Vec3i dim = map_util->getDim();
-    decimal_t res = map_util->getRes();
-
-    map.origin.x = ori(0);
-    map.origin.y = ori(1);
-    map.origin.z = ori(2);
-
-    map.dim.x = dim(0);
-    map.dim.y = dim(1);
-    map.dim.z = dim(2);
-    map.resolution = res;
-
-    map.data = map_util->getMap();
-}
-
-
-
-
-
-bool checkGoal(Pose &pose_goal, Twist &twist_goal, Accel &accel_goal,
+bool checkGoal(Point &pose_goal, Vector3 &twist_goal, Vector3 &accel_goal,
                double kinematic_constraints[3], double max_arena[3],
                double min_arena[3]) {
-    if (pose_goal.position.x > max_arena[0] ||
-        pose_goal.position.y > max_arena[1] ||
-        pose_goal.position.z > max_arena[2]) {
+    if (pose_goal.x > max_arena[0] ||
+        pose_goal.y > max_arena[1] ||
+        pose_goal.z > max_arena[2]) {
         ROS_ERROR("Goal provided to planner is above arena limits");
         return false;
     }
 
-    if (pose_goal.position.x < min_arena[0] ||
-        pose_goal.position.z < min_arena[1] ||
-        pose_goal.position.z < min_arena[2]) {
+    if (pose_goal.x < min_arena[0] ||
+        pose_goal.z < min_arena[1] ||
+        pose_goal.z < min_arena[2]) {
         ROS_ERROR("Goal provided to planner is below arena limits");
         return false;
     }
 
-    if (std::max({std::abs(twist_goal.linear.x), std::abs(twist_goal.linear.y),
-                  std::abs(twist_goal.linear.z)}) > kinematic_constraints[0]) {
+    if (std::max({std::abs(twist_goal.x), std::abs(twist_goal.y),
+                  std::abs(twist_goal.z)}) > kinematic_constraints[0]) {
         ROS_ERROR(
             "Goal provided to planner is beyond platform velocity limits");
         return false;
     }
 
-    if (std::max({std::abs(accel_goal.linear.x), std::abs(accel_goal.linear.y),
-                  std::abs(accel_goal.linear.z)}) > kinematic_constraints[1]) {
+    if (std::max({std::abs(accel_goal.x), std::abs(accel_goal.y),
+                  std::abs(accel_goal.z)}) > kinematic_constraints[1]) {
         ROS_ERROR("Goal provided to planner is beyond platform acceleration limits");
         return false;
     }
@@ -198,7 +106,7 @@ int main(int argc, char **argv) {
         ros::Duration(.005).sleep();
     }
 
-    // start action server
+   // start action server
     Server server(nh, "planner_request", false);
     server.start();
 
@@ -295,65 +203,36 @@ int main(int argc, char **argv) {
         }
     }
 
+    iarc7_msgs::PlanGoalConstPtr goal_;
+
+    Point pose_goal, pose_start;
+    Vector3 twist_goal, twist_start;
+    Vector3 accel_goal, accel_start;
+
+    // for caching maps
+    bool new_obstacle_available = true;
+    planning_ros_msgs::VoxelMap last_map;
+
+    // map util
+    std::shared_ptr<MPL::VoxelMapUtil> map_util(new MPL::VoxelMapUtil);
+
     // debug publishers
     ros::Publisher map_pub = nh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
     ros::Publisher traj_pub = nh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
     ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("cloud", 1, true);
 
-    std::shared_ptr<MPL::VoxelMapUtil> map_util(new MPL::VoxelMapUtil);
-
-
-    planning_ros_msgs::VoxelMap map;
-
-    ros::Time start_map = ros::Time::now();
-
-    map.resolution = map_res;
-
-    map.origin.x = min_arena_limits[0];
-    map.origin.y = min_arena_limits[1];
-    map.origin.z = min_arena_limits[2];
-
-    map.dim.x = max_arena_limits[0];
-    map.dim.y = max_arena_limits[1];
-    map.dim.z = max_arena_limits[2];
-
-    std::vector<int8_t> data(map.dim.x*map.dim.y*map.dim.z, 0);
-    map.data = data;
-
-    // Initialize map util
-    setMap(map_util, map);
-
-    // initialize planner
-    std::unique_ptr<MPMap3DUtil> planner;
-    planner.reset(new MPMap3DUtil(true));
-    planner->setMapUtil(map_util);
-    planner->setEpsilon(eps);
-    planner->setVmax(kinematic_constraints[0]);
-    planner->setAmax(kinematic_constraints[1]);
-    planner->setUmax(u_max);
-    planner->setDt(dt);
-    planner->setTmax(ndt*dt);
-    planner->setMaxNum(max_num);
-    planner->setU(U);
-    planner->setTol(tolerances[0]);
-
-    iarc7_msgs::PlanGoalConstPtr goal_;
-
-    Pose pose_goal;
-    Twist twist_goal;
-    Accel accel_goal;
-
     // Form a connection with the node monitor. If no connection can be made
     // assert because we don't know what's going on with the other nodes.
-    // ROS_INFO("Motion_Planner: Attempting to form safety bond");
+    ROS_INFO("Motion_Planner: Attempting to form safety bond");
 
-    // Iarc7Safety::SafetyClient safety_client(nh, "motion_planner");
+    Iarc7Safety::SafetyClient safety_client(nh, "motion_planner");
 
-    // ROS_ASSERT_MSG(safety_client.formBond(),"Motion_Planner: Could not form bond with safety client");
+    ROS_ASSERT_MSG(safety_client.formBond(),"Motion_Planner: Could not form bond with safety client");
 
     // Cache the time
     ros::Time last_time = ros::Time::now();
 
+    // node update rate
     ros::Rate rate(update_frequency);
 
     PlannerState state = PlannerState::WAITING;
@@ -364,8 +243,8 @@ int main(int argc, char **argv) {
         // there is no safety response for this node, so
         // shut down.
 
-        // ROS_ASSERT_MSG(!safety_client.isFatalActive(), "motion_planner: fatal event from safety");
-        // ROS_ASSERT_MSG(!safety_client.isSafetyActive(), "Motion_Planner shutdown due to safety active");
+        ROS_ASSERT_MSG(!safety_client.isFatalActive(), "motion_planner: fatal event from safety");
+        ROS_ASSERT_MSG(!safety_client.isSafetyActive(), "Motion_Planner shutdown due to safety active");
 
         // Get the time
         ros::Time current_time = ros::Time::now();
@@ -384,31 +263,156 @@ int main(int argc, char **argv) {
                 state = PlannerState::WAITING;
             }
 
-            // get a new goal from action server
-            if (server.isNewGoalAvailable()) {
-                if (server.isActive()) {
-                    ROS_INFO(
-                        "New goal received with current goal still running");
-                }
+            if (state == PlannerState::WAITING) {
+                // get a new goal from action server
+                if (server.isNewGoalAvailable()) {
+                    if (server.isActive()) {
+                        ROS_INFO("New goal received with current goal still running");
+                    }
 
-                // planning goal
-                goal_ = server.acceptNewGoal();
+                    // planning goal
+                    goal_ = server.acceptNewGoal();
 
-                pose_goal = goal_->goal.motion_point.pose;
-                twist_goal = goal_->goal.motion_point.twist;
-                accel_goal = goal_->goal.motion_point.accel;
+                    pose_goal = goal_->goal.motion_point.pose.position;
+                    twist_goal = goal_->goal.motion_point.twist.linear;
+                    accel_goal = goal_->goal.motion_point.accel.linear;
 
-                if (!checkGoal(pose_goal, twist_goal, accel_goal,
-                               kinematic_constraints,
-                               max_arena_limits,
-                               min_arena_limits)) {
-                    ROS_ERROR("Planner aborting requested gaol");
-                    server.setAborted();
-                    state = PlannerState::WAITING;
-                } else {
+                    pose_start = goal_->start.motion_point.pose.position;
+                    twist_start = goal_->start.motion_point.twist.linear;
+                    accel_start = goal_->start.motion_point.accel.linear;
+
+                    if (!checkGoal(pose_goal, twist_goal, accel_goal,
+                                   kinematic_constraints,
+                                   max_arena_limits,
+                                   min_arena_limits)) {
+                        ROS_ERROR("Planner aborting requested gaol");
+                        server.setAborted();
+                        state = PlannerState::WAITING;
+                    } else {
+                        ROS_INFO("New goal accepted by planner, now map");
+                    }
+
                     state = PlannerState::PLANNING;
-                    ROS_INFO("New goal accepted by planner");
+
+                } else {
+                    ROS_DEBUG_THROTTLE(60, "Planner: No new goal. Generate map only");
+                    state = PlannerState::WAITING;
                 }
+
+                if (new_obstacle_available) {
+                    iarc7_msgs::ObstacleArray obstacles;
+
+                    iarc7_msgs::Obstacle new_obstacle;
+                    new_obstacle.pipe_height = 2.0;
+                    new_obstacle.pipe_radius = 1.0;
+                    new_obstacle.odom.pose.pose.position.x = 9;
+                    new_obstacle.odom.pose.pose.position.y = 11;
+                    new_obstacle.odom.pose.pose.position.z = 0;
+                    obstacles.obstacles.push_back(new_obstacle);
+
+                    for (double i = 0; i < 2; i += 0.8) {
+                        new_obstacle.pipe_height = 1.5;
+                        new_obstacle.pipe_radius = 0.7;
+                        new_obstacle.odom.pose.pose.position.x = 9 - i * 2;
+                        new_obstacle.odom.pose.pose.position.y = 9 + 0.5 * i;
+                        new_obstacle.odom.pose.pose.position.z = 0;
+                        obstacles.obstacles.push_back(new_obstacle);
+                    }
+
+                    ros::Time t1 = ros::Time::now();
+
+                    // Standard header
+                    std_msgs::Header header;
+                    header.frame_id = std::string("map");
+
+                    planning_ros_msgs::VoxelMap map;
+                    map.resolution = map_res;
+                    map.origin.x = min_arena_limits[0]/map_res;
+                    map.origin.y = min_arena_limits[1]/map_res;
+                    map.origin.z = min_arena_limits[2]/map_res;
+                    map.dim.x = max_arena_limits[0]/map_res;
+                    map.dim.y = max_arena_limits[1]/map_res;
+                    map.dim.z = max_arena_limits[2]/map_res;
+                    std::vector<int8_t> data(map.dim.x * map.dim.y * map.dim.z, 0);
+                    map.data = data;
+
+                    sensor_msgs::PointCloud cloud;
+
+                    // Generate cloud from obstacle data
+                    ROS_INFO("Number of obstacles: [%zu]", obstacles.obstacles.size());
+                    cloud.header.stamp = ros::Time::now();
+                    cloud.header.frame_id = "cloud";
+                    cloud.channels.resize(1);
+
+                    std::array<decimal_t, 3> voxel_map_origin =
+                        {map.origin.x, map.origin.y, map.origin.z};
+
+                    ROS_INFO("Mapping obstacles to the cloud");
+                    for (auto& obstacle : obstacles.obstacles) {
+                        // Map each obstacle to the cloud
+                        float pipe_radius = obstacle.pipe_radius;
+                        float pipe_height = obstacle.pipe_height;
+                        float pipe_x = obstacle.odom.pose.pose.position.x;
+                        float pipe_y = obstacle.odom.pose.pose.position.y;
+                        float px, py, pz;
+                        for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
+                            for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
+                                for (float r = pipe_radius - map_res; r < pipe_radius; r += map_res) {
+                                    px = r * std::cos(theta) + pipe_x + voxel_map_origin[0];
+                                    py = r * std::sin(theta) + pipe_y + voxel_map_origin[1];
+                                    geometry_msgs::Point32 point;
+                                    point.x = px;
+                                    point.y = py;
+                                    point.z = pz;
+                                    cloud.points.push_back(point);
+                                }
+                            }
+                        }
+                    }
+
+                    vec_Vec3f pts = cloud_to_vec(cloud);
+
+                    std::array<decimal_t, 3> voxel_map_dim =
+                        {map.dim.x * map_res,
+                         map.dim.y * map_res,
+                         map.dim.z * map_res};
+
+                    std::unique_ptr<VoxelGrid> voxel_grid(
+                        new VoxelGrid(voxel_map_origin, voxel_map_dim, map_res));
+
+                    voxel_grid->addCloud(pts);
+                    voxel_grid->getMap(map);
+
+                    map.header = cloud.header;
+
+                    // Initialize map util
+                    Vec3f ori(map.origin.x, map.origin.y, map.origin.z);
+                    Vec3i dim(map.dim.x, map.dim.y, map.dim.z);
+
+                    map_util->setMap(ori, dim, map.data, map_res);
+
+                    // Free unknown space and dilate obstacles
+                    // map_util->freeUnknown();
+                    // map_util->dilate(0.2, 0.1);
+
+                    ROS_INFO("Takes %f sec for building map", (ros::Time::now() - t1).toSec());
+
+                    // Publish the dilated map for visualization
+                    map.header = header;
+                    map_pub.publish(map);
+
+                    last_map = map;
+
+                    new_obstacle_available = false;
+                } else {
+                    ROS_INFO("MotionPlanner: No new obstacle info available. Using previously generated map");
+
+                    Vec3f ori(last_map.origin.x, last_map.origin.y, last_map.origin.z);
+                    Vec3i dim(last_map.dim.x, last_map.dim.y, last_map.dim.z);
+
+                    map_util->setMap(ori, dim, last_map.data, map_res);
+                }
+
             }
 
             // able to generate a plan
@@ -416,86 +420,36 @@ int main(int argc, char **argv) {
                 iarc7_msgs::PlanResult result_;
                 iarc7_msgs::PlanFeedback feedback_;
 
-                ros::Time start_map = ros::Time::now();
-
-                map.resolution = map_res;
-
-                map.origin.x = min_arena_limits[0];
-                map.origin.y = min_arena_limits[1];
-                map.origin.z = min_arena_limits[2];
-
-                map.dim.x = max_arena_limits[0];
-                map.dim.y = max_arena_limits[1];
-                map.dim.z = max_arena_limits[2];
-
-                std::vector<int8_t> data(map.dim.x*map.dim.y*map.dim.z, 0);
-                map.data = data;
-
-                iarc7_msgs::ObstacleArray obstacles;
-
-                iarc7_msgs::Obstacle new_obstacle;
-                new_obstacle.pipe_height = 2.0;
-                new_obstacle.pipe_radius = 1.0;
-                new_obstacle.odom.pose.pose.position.x = 9;
-                new_obstacle.odom.pose.pose.position.y = 11;
-                new_obstacle.odom.pose.pose.position.z = 0;
-                obstacles.obstacles.push_back(new_obstacle);
-
-                for (double i = 0; i < 2; i += 0.8) {
-                    new_obstacle.pipe_height = 2.0;
-                    new_obstacle.pipe_radius = 1.0;
-                    new_obstacle.odom.pose.pose.position.x = 15 - i * 2;
-                    new_obstacle.odom.pose.pose.position.y = 15 + 0.5 * i;
-                    new_obstacle.odom.pose.pose.position.z = 0;
-                    obstacles.obstacles.push_back(new_obstacle);
-                }
-
-                generateVoxelMap(map, obstacles);
-
-                // Initialize map util
-                setMap(map_util, map);
-
-                // Free unknown space and dilate obstacles
-                map_util->freeUnknown();
-                // map_util->dilate(0.2, 0.1);
-
-                ROS_INFO("Takes %f sec for building map", (ros::Time::now() - start_map).toSec());
-
-                // Publish the dilated map for visualization
-                getMap(map_util, map);
-                map.header.frame_id = "map";
-                map_pub.publish(map);
-
-                // Set start and goal
-                double start_x = 1.0;
-                double start_y = 1.0;
-                double start_z = 0.5;
-
-                double start_vx = 0.0;
-                double start_vy = 0.0;
-                double start_vz = 0.1;
-
                 Waypoint3 start;
-                start.pos = Vec3f(start_x, start_y, start_z);
-                start.vel = Vec3f(start_vx, start_vy, start_vz);
-                start.acc = Vec3f(0, 0, 0);
+                start.pos = Vec3f(pose_start.x, pose_start.y, pose_start.z);
+                start.vel = Vec3f(twist_start.x, twist_start.y, twist_start.z);
+                start.acc = Vec3f(accel_start.x, accel_start.y, accel_start.z);
                 start.use_pos = use_pos;
                 start.use_vel = use_vel;
                 start.use_acc = use_acc;
                 start.use_jrk = use_jrk;
 
                 Waypoint3 goal;
-                goal.pos = Vec3f(pose_goal.position.x, pose_goal.position.y, pose_goal.position.z);
-                goal.vel = Vec3f(twist_goal.linear.x, twist_goal.linear.y, twist_goal.linear.z);
-                goal.acc = Vec3f(accel_goal.linear.x, accel_goal.linear.y, accel_goal.linear.z);
+                goal.pos = Vec3f(pose_goal.x, pose_goal.y, pose_goal.z);
+                goal.vel = Vec3f(twist_goal.x, twist_goal.y, twist_goal.z);
+                goal.acc = Vec3f(accel_goal.x, accel_goal.y, accel_goal.z);
                 goal.use_pos = use_pos;
                 goal.use_vel = use_vel;
                 goal.use_acc = use_acc;
                 goal.use_jrk = use_jrk;
 
+                std::unique_ptr<MPMap3DUtil> planner;
+                planner.reset(new MPMap3DUtil(true));
                 planner->setMapUtil(map_util);
+                planner->setEpsilon(eps);
+                planner->setVmax(kinematic_constraints[0]);
+                planner->setAmax(kinematic_constraints[1]);
+                planner->setUmax(kinematic_constraints[2]);
+                planner->setDt(dt);
+                planner->setTmax(ndt * dt);
+                planner->setMaxNum(max_num);
                 planner->setU(U);
-                planner->setUmax(u_max);
+                planner->setTol(tolerances[0]);
 
                 // now we can plan
                 ros::Time t0 = ros::Time::now();
@@ -509,11 +463,13 @@ int main(int argc, char **argv) {
                         (ros::Time::now() - t0).toSec(), planner->getCloseSet().size());
                 }
 
-                // Publish trajectory
-                auto traj = planner->getTraj();
-                planning_ros_msgs::Trajectory traj_msg = toTrajectoryROSMsg(traj);
-                traj_msg.header.frame_id = "map";
-                traj_pub.publish(traj_msg);
+                if (valid) {
+                    // Publish trajectory
+                    auto traj = planner->getTraj();
+                    planning_ros_msgs::Trajectory traj_msg = toTrajectoryROSMsg(traj);
+                    traj_msg.header.frame_id = "map";
+                    traj_pub.publish(traj_msg);
+                }
 
                 result_.success = valid;
 
