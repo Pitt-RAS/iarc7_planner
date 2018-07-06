@@ -53,7 +53,8 @@ enum class PlannerState { WAITING, PLANNING };
 
 
 bool checkGoal(Point &pose_goal, Vector3 &twist_goal, Vector3 &accel_goal,
-               double kinematic_constraints[3], double max_arena[3],
+               double kinematic_constraints[3],
+               double max_arena[3],
                double min_arena[3]) {
     if (pose_goal.x > max_arena[0] ||
         pose_goal.y > max_arena[1] ||
@@ -115,9 +116,6 @@ int main(int argc, char **argv) {
     // node update frequency
     double update_frequency = 20;
 
-    // Update frequency retrieve
-    ROS_ASSERT(private_nh.getParam("planner_update_frequency", update_frequency));
-
     // settings for planner
 
     // min and max arena limits
@@ -137,6 +135,8 @@ int main(int argc, char **argv) {
     // resolution to generate map at
     double map_res = .25;
 
+    double obstacle_coordinate_offset = 10;
+
     int max_num = 5000;
     int num = 1;
     int ndt = 1000;
@@ -147,6 +147,9 @@ int main(int argc, char **argv) {
     bool use_jrk = false;
 
     vec_Vec3f U;
+
+    // Update frequency retrieve
+    ROS_ASSERT(private_nh.getParam("planner_update_frequency", update_frequency));
 
     // max x, y, z arena limits
     ROS_ASSERT(private_nh.getParam("arena/max_x", max_arena_limits[0]));
@@ -194,6 +197,9 @@ int main(int argc, char **argv) {
     ROS_ASSERT(private_nh.getParam("v_tol", tolerances[1]));
     ROS_ASSERT(private_nh.getParam("a_tol", tolerances[2]));
 
+    // correction for obstacle-planner coordinate frame differences
+    ROS_ASSERT(private_nh.getParam("obstacle_coordinate_offset", obstacle_coordinate_offset));
+
     const decimal_t du = u_max / num;
     for (decimal_t dx = -u_max; dx <= u_max; dx += du) {
         for (decimal_t dy = -u_max; dy <= u_max; dy += du) {
@@ -210,7 +216,7 @@ int main(int argc, char **argv) {
     Vector3 accel_goal, accel_start;
 
     // for caching maps
-    bool new_obstacle_available = true;
+    bool new_obstacle_available = false;
     planning_ros_msgs::VoxelMap last_map;
 
     // map util
@@ -220,6 +226,21 @@ int main(int argc, char **argv) {
     ros::Publisher map_pub = nh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
     ros::Publisher traj_pub = nh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
     ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("cloud", 1, true);
+
+    // subscribe to obstacle topic
+
+    boost::shared_ptr<const iarc7_msgs::ObstacleArray> last_msg;
+    boost::function<void(const boost::shared_ptr<const iarc7_msgs::ObstacleArray>&)> obstacle_callback =
+        [&](const boost::shared_ptr<const iarc7_msgs::ObstacleArray>& msg) -> void {
+            if (last_msg == nullptr || last_msg->header.stamp < msg->header.stamp) {
+                last_msg = msg;
+                new_obstacle_available = true;
+
+            } else {
+                ROS_ERROR("Bad stamp on obstacle message");
+            }
+        };
+    ros::Subscriber obstacle_sub = nh.subscribe("obstacles", 2, obstacle_callback);
 
     // Form a connection with the node monitor. If no connection can be made
     // assert because we don't know what's going on with the other nodes.
@@ -263,7 +284,11 @@ int main(int argc, char **argv) {
                 state = PlannerState::WAITING;
             }
 
-            if (state == PlannerState::WAITING) {
+            if (last_msg == nullptr) {
+                ROS_ERROR("MotionPlanner: No obstacle information available, can't build map");
+                new_obstacle_available = false;
+                state = PlannerState::WAITING;
+            } else if (state == PlannerState::WAITING) {
                 // get a new goal from action server
                 if (server.isNewGoalAvailable()) {
                     if (server.isActive()) {
@@ -300,26 +325,7 @@ int main(int argc, char **argv) {
                 }
 
                 if (new_obstacle_available) {
-                    iarc7_msgs::ObstacleArray obstacles;
-
-                    iarc7_msgs::Obstacle new_obstacle;
-                    new_obstacle.pipe_height = 2.0;
-                    new_obstacle.pipe_radius = 1.0;
-                    new_obstacle.odom.pose.pose.position.x = 9;
-                    new_obstacle.odom.pose.pose.position.y = 11;
-                    new_obstacle.odom.pose.pose.position.z = 0;
-                    obstacles.obstacles.push_back(new_obstacle);
-
-                    for (double i = 0; i < 2; i += 0.8) {
-                        new_obstacle.pipe_height = 1.5;
-                        new_obstacle.pipe_radius = 0.7;
-                        new_obstacle.odom.pose.pose.position.x = 9 - i * 2;
-                        new_obstacle.odom.pose.pose.position.y = 9 + 0.5 * i;
-                        new_obstacle.odom.pose.pose.position.z = 0;
-                        obstacles.obstacles.push_back(new_obstacle);
-                    }
-
-                    ros::Time t1 = ros::Time::now();
+                    ros::WallTime t1 = ros::WallTime::now();
 
                     // Standard header
                     std_msgs::Header header;
@@ -339,7 +345,7 @@ int main(int argc, char **argv) {
                     sensor_msgs::PointCloud cloud;
 
                     // Generate cloud from obstacle data
-                    ROS_INFO("Number of obstacles: [%zu]", obstacles.obstacles.size());
+                    ROS_INFO("Number of obstacles: [%zu]", last_msg->obstacles.size());
                     cloud.header.stamp = ros::Time::now();
                     cloud.header.frame_id = "cloud";
                     cloud.channels.resize(1);
@@ -348,12 +354,14 @@ int main(int argc, char **argv) {
                         {map.origin.x, map.origin.y, map.origin.z};
 
                     ROS_INFO("Mapping obstacles to the cloud");
-                    for (auto& obstacle : obstacles.obstacles) {
+                    for (auto& obstacle : last_msg->obstacles) {
                         // Map each obstacle to the cloud
                         float pipe_radius = obstacle.pipe_radius;
                         float pipe_height = obstacle.pipe_height;
-                        float pipe_x = obstacle.odom.pose.pose.position.x;
-                        float pipe_y = obstacle.odom.pose.pose.position.y;
+                        float pipe_x = (obstacle.odom.pose.pose.position.x +
+                                    obstacle_coordinate_offset)/map_res;
+                        float pipe_y = (obstacle.odom.pose.pose.position.y +
+                                    obstacle_coordinate_offset)/map_res;
                         float px, py, pz;
                         for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
                             for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
@@ -395,7 +403,7 @@ int main(int argc, char **argv) {
                     // map_util->freeUnknown();
                     // map_util->dilate(0.2, 0.1);
 
-                    ROS_INFO("Takes %f sec for building map", (ros::Time::now() - t1).toSec());
+                    ROS_INFO("Takes %f sec for building map", (ros::WallTime::now() - t1).toSec());
 
                     // Publish the dilated map for visualization
                     map.header = header;
@@ -404,7 +412,7 @@ int main(int argc, char **argv) {
                     last_map = map;
 
                     new_obstacle_available = false;
-                } else {
+                } else if (last_msg != nullptr) {
                     ROS_INFO("MotionPlanner: No new obstacle info available. Using previously generated map");
 
                     Vec3f ori(last_map.origin.x, last_map.origin.y, last_map.origin.z);
@@ -412,7 +420,6 @@ int main(int argc, char **argv) {
 
                     map_util->setMap(ori, dim, last_map.data, map_res);
                 }
-
             }
 
             // able to generate a plan
@@ -452,15 +459,14 @@ int main(int argc, char **argv) {
                 planner->setTol(tolerances[0]);
 
                 // now we can plan
-                ros::Time t0 = ros::Time::now();
+                ros::WallTime t0 = ros::WallTime::now();
                 bool valid = planner->plan(start, goal);
 
                 if (!valid) {
-                    ROS_WARN("Failed and took %f sec for planning, expand [%zu] nodes",
-                        (ros::Time::now() - t0).toSec(), planner->getCloseSet().size());
+                    ROS_WARN("Failed and took %f sec for planning", (ros::WallTime::now() - t0).toSec());
                 } else {
                     ROS_INFO("Succeeded and took %f sec for planning, expand [%zu] nodes",
-                        (ros::Time::now() - t0).toSec(), planner->getCloseSet().size());
+                        (ros::WallTime::now() - t0).toSec(), planner->getCloseSet().size());
                 }
 
                 if (valid) {

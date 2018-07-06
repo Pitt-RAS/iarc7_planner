@@ -16,12 +16,12 @@ planner_update_frequency : 60.0
 # use_jrk = false | use_jrk = false | use_jrk = false | use_jrk = true
 
 arena:
-    max_x: 10.0 # meters
-    max_y: 10.0 # meters
+    max_x: 20.0 # meters
+    max_y: 20.0 # meters
     max_z: 3.0 # meters
 
-    min_x: -10.0 # meters
-    min_y: -10.0 # meters
+    min_x: 0.0 # meters
+    min_y: 0.0 # meters
     min_z: 0.0 # meters
 
 use_pos: true
