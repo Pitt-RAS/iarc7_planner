@@ -135,10 +135,10 @@ int main(int argc, char **argv) {
     // resolution to generate map at
     double map_res = .25;
 
+    // samples per sec for generating waypoints
     double samples_per_sec = 50;
 
-    // samples per sec for generating waypoints
-    double obstacle_coordinate_offset = 10;
+    double coordinate_offset = 10;
 
     int max_num = 5000;
     int num = 1;
@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
     ROS_ASSERT(private_nh.getParam("a_tol", tolerances[2]));
 
     // correction for obstacle-planner coordinate frame differences
-    ROS_ASSERT(private_nh.getParam("obstacle_coordinate_offset", obstacle_coordinate_offset));
+    ROS_ASSERT(private_nh.getParam("coordinate_offset", coordinate_offset));
 
     ROS_ASSERT(private_nh.getParam("samples_per_sec", samples_per_sec));
 
@@ -284,8 +284,7 @@ int main(int argc, char **argv) {
             if (server.isPreemptRequested() &&
                 state == PlannerState::PLANNING) {
                 server.setPreempted();
-                ROS_INFO(
-                    "Preempt requested. Current planning goal was canceled");
+                ROS_INFO("Preempt requested. Current planning goal was canceled");
                 state = PlannerState::WAITING;
             }
 
@@ -364,9 +363,9 @@ int main(int argc, char **argv) {
                         float pipe_radius = obstacle.pipe_radius;
                         float pipe_height = obstacle.pipe_height;
                         float pipe_x = (obstacle.odom.pose.pose.position.x +
-                                    obstacle_coordinate_offset)/map_res;
+                                    coordinate_offset)/map_res;
                         float pipe_y = (obstacle.odom.pose.pose.position.y +
-                                    obstacle_coordinate_offset)/map_res;
+                                    coordinate_offset)/map_res;
                         float px, py, pz;
                         for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
                             for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
@@ -408,7 +407,7 @@ int main(int argc, char **argv) {
                     // map_util->freeUnknown();
                     // map_util->dilate(0.2, 0.1);
 
-                    //ROS_INFO("Takes %f sec for building map", (ros::WallTime::now() - t1).toSec());
+                    ROS_DEBUG_THROTTLE(60, "Takes %f sec for building map", (ros::WallTime::now() - t1).toSec());
 
                     // Publish the dilated map for visualization
                     map.header = header;
@@ -418,7 +417,7 @@ int main(int argc, char **argv) {
 
                     new_obstacle_available = false;
                 } else if (last_msg != nullptr) {
-                    //ROS_INFO("MotionPlanner: No new obstacle info available. Using previously generated map");
+                    ROS_DEBUG_THROTTLE(60, "MotionPlanner: No new obstacle info available. Using previously generated map");
 
                     Vec3f ori(last_map.origin.x, last_map.origin.y, last_map.origin.z);
                     Vec3i dim(last_map.dim.x, last_map.dim.y, last_map.dim.z);
@@ -451,7 +450,7 @@ int main(int argc, char **argv) {
                 goal.use_jrk = use_jrk;
 
                 std::unique_ptr<MPMap3DUtil> planner;
-                planner.reset(new MPMap3DUtil(true));
+                planner.reset(new MPMap3DUtil(false));
                 planner->setMapUtil(map_util);
                 planner->setEpsilon(eps);
                 planner->setVmax(kinematic_constraints[0]);
@@ -485,7 +484,7 @@ int main(int argc, char **argv) {
 
                     vec_E<Waypoint<3>> waypoints = traj.sample(n_samples);
 
-                    ros::Time time_point = ros::Time::now();
+                    ros::Time time_point = goal_->header.stamp;
                     ros::Duration t_step = ros::Duration(traj_time/waypoints.size());
 
                     for (Waypoint<3> waypoint : waypoints) {
@@ -493,8 +492,8 @@ int main(int argc, char **argv) {
                         m_point.header.frame_id = "map";
                         m_point.header.stamp = time_point;
 
-                        m_point.motion_point.pose.position.x = waypoint.pos(0);
-                        m_point.motion_point.pose.position.y = waypoint.pos(1);
+                        m_point.motion_point.pose.position.x = waypoint.pos(0)-coordinate_offset;
+                        m_point.motion_point.pose.position.y = waypoint.pos(1)-coordinate_offset;
                         m_point.motion_point.pose.position.z = waypoint.pos(2);
 
                         m_point.motion_point.twist.linear.x = waypoint.vel(0);
@@ -505,15 +504,12 @@ int main(int argc, char **argv) {
                         m_point.motion_point.accel.linear.y = waypoint.acc(1);
                         m_point.motion_point.accel.linear.z = waypoint.acc(2);
 
-                        result_.plan.motion_points.push_back(m_point);
+                        feedback_.plan.motion_points.push_back(m_point);
                         time_point = time_point + t_step;
                     }
-                    result_.success = valid;
-                    result_.total_time = traj_time;
-
-                    server.setSucceeded(result_);
-
-                    state = PlannerState::WAITING;
+                    feedback_.success = valid;
+                    feedback_.total_time = traj_time;
+                    server.publishFeedback(feedback_);
                 }
             }
         }

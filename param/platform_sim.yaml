@@ -18,4 +18,4 @@ v_tol: 0.2
 a_tol: 0.5
 
 # offset to account for coordinate frame differences
-obstacle_coordinate_offset: 10
+coordinate_offset: 10
