@@ -135,6 +135,9 @@ int main(int argc, char **argv) {
     // resolution to generate map at
     double map_res = .25;
 
+    double samples_per_sec = 50;
+
+    // samples per sec for generating waypoints
     double obstacle_coordinate_offset = 10;
 
     int max_num = 5000;
@@ -177,7 +180,7 @@ int main(int argc, char **argv) {
     ROS_ASSERT(private_nh.getParam("use_acc", use_acc));
     ROS_ASSERT(private_nh.getParam("use_jrk", use_jrk));
 
-    // ndt*dt is the plannign horizon
+    // ndt*dt is the planning horizon
     ROS_ASSERT(private_nh.getParam("ndt", ndt));
 
     // Epsilon: greedy param
@@ -199,6 +202,8 @@ int main(int argc, char **argv) {
 
     // correction for obstacle-planner coordinate frame differences
     ROS_ASSERT(private_nh.getParam("obstacle_coordinate_offset", obstacle_coordinate_offset));
+
+    ROS_ASSERT(private_nh.getParam("samples_per_sec", samples_per_sec));
 
     const decimal_t du = u_max / num;
     for (decimal_t dx = -u_max; dx <= u_max; dx += du) {
@@ -345,7 +350,7 @@ int main(int argc, char **argv) {
                     sensor_msgs::PointCloud cloud;
 
                     // Generate cloud from obstacle data
-                    ROS_INFO("Number of obstacles: [%zu]", last_msg->obstacles.size());
+                    //ROS_INFO("Number of obstacles: [%zu]", last_msg->obstacles.size());
                     cloud.header.stamp = ros::Time::now();
                     cloud.header.frame_id = "cloud";
                     cloud.channels.resize(1);
@@ -353,7 +358,7 @@ int main(int argc, char **argv) {
                     std::array<decimal_t, 3> voxel_map_origin =
                         {map.origin.x, map.origin.y, map.origin.z};
 
-                    ROS_INFO("Mapping obstacles to the cloud");
+                    //ROS_INFO("Mapping obstacles to the cloud");
                     for (auto& obstacle : last_msg->obstacles) {
                         // Map each obstacle to the cloud
                         float pipe_radius = obstacle.pipe_radius;
@@ -403,7 +408,7 @@ int main(int argc, char **argv) {
                     // map_util->freeUnknown();
                     // map_util->dilate(0.2, 0.1);
 
-                    ROS_INFO("Takes %f sec for building map", (ros::WallTime::now() - t1).toSec());
+                    //ROS_INFO("Takes %f sec for building map", (ros::WallTime::now() - t1).toSec());
 
                     // Publish the dilated map for visualization
                     map.header = header;
@@ -413,7 +418,7 @@ int main(int argc, char **argv) {
 
                     new_obstacle_available = false;
                 } else if (last_msg != nullptr) {
-                    ROS_INFO("MotionPlanner: No new obstacle info available. Using previously generated map");
+                    //ROS_INFO("MotionPlanner: No new obstacle info available. Using previously generated map");
 
                     Vec3f ori(last_map.origin.x, last_map.origin.y, last_map.origin.z);
                     Vec3i dim(last_map.dim.x, last_map.dim.y, last_map.dim.z);
@@ -464,24 +469,52 @@ int main(int argc, char **argv) {
 
                 if (!valid) {
                     ROS_WARN("Failed and took %f sec for planning", (ros::WallTime::now() - t0).toSec());
+                    ROS_ERROR("Planner failed to find a plan, will try again");
+
+                    feedback_.success = valid;
+                    server.publishFeedback(feedback_);
                 } else {
                     ROS_INFO("Succeeded and took %f sec for planning, expand [%zu] nodes",
                         (ros::WallTime::now() - t0).toSec(), planner->getCloseSet().size());
-                }
 
-                if (valid) {
-                    // Publish trajectory
+                    // convert trajectory to motion points
                     auto traj = planner->getTraj();
-                    planning_ros_msgs::Trajectory traj_msg = toTrajectoryROSMsg(traj);
-                    traj_msg.header.frame_id = "map";
-                    traj_pub.publish(traj_msg);
+
+                    double traj_time = traj.getTotalTime();
+                    double n_samples = samples_per_sec * traj_time;
+
+                    vec_E<Waypoint<3>> waypoints = traj.sample(n_samples);
+
+                    ros::Time time_point = ros::Time::now();
+                    ros::Duration t_step = ros::Duration(traj_time/waypoints.size());
+
+                    for (Waypoint<3> waypoint : waypoints) {
+                        iarc7_msgs::MotionPointStamped m_point;
+                        m_point.header.frame_id = "map";
+                        m_point.header.stamp = time_point;
+
+                        m_point.motion_point.pose.position.x = waypoint.pos(0);
+                        m_point.motion_point.pose.position.y = waypoint.pos(1);
+                        m_point.motion_point.pose.position.z = waypoint.pos(2);
+
+                        m_point.motion_point.twist.linear.x = waypoint.vel(0);
+                        m_point.motion_point.twist.linear.y = waypoint.vel(1);
+                        m_point.motion_point.twist.linear.z = waypoint.vel(2);
+
+                        m_point.motion_point.accel.linear.x = waypoint.acc(0);
+                        m_point.motion_point.accel.linear.y = waypoint.acc(1);
+                        m_point.motion_point.accel.linear.z = waypoint.acc(2);
+
+                        result_.plan.motion_points.push_back(m_point);
+                        time_point = time_point + t_step;
+                    }
+                    result_.success = valid;
+                    result_.total_time = traj_time;
+
+                    server.setSucceeded(result_);
+
+                    state = PlannerState::WAITING;
                 }
-
-                result_.success = valid;
-
-                server.publishFeedback(feedback_);
-
-                state = PlannerState::WAITING;
             }
         }
 

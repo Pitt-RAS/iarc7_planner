@@ -42,3 +42,6 @@ max_num: 5000
 
 # resolution to generate map at
 map_res: .25
+
+# samples per sec for generating waypoints
+samples_per_sec: 50
