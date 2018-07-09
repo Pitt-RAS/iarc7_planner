@@ -370,12 +370,12 @@ int main(int argc, char **argv) {
                         for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
                             for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
                                 for (float r = pipe_radius - map_res; r < pipe_radius; r += map_res) {
-                                    px = r * std::cos(theta) + pipe_x + voxel_map_origin[0];
-                                    py = r * std::sin(theta) + pipe_y + voxel_map_origin[1];
+                                    px = r * std::cos(theta) + pipe_x + voxel_map_origin[0] + .5;
+                                    py = r * std::sin(theta) + pipe_y + voxel_map_origin[1] + .5;
                                     geometry_msgs::Point32 point;
                                     point.x = px;
                                     point.y = py;
-                                    point.z = pz;
+                                    point.z = pz + .5;
                                     cloud.points.push_back(point);
                                 }
                             }
@@ -403,11 +403,7 @@ int main(int argc, char **argv) {
 
                     map_util->setMap(ori, dim, map.data, map_res);
 
-                    // Free unknown space and dilate obstacles
-                    // map_util->freeUnknown();
-                    // map_util->dilate(0.2, 0.1);
-
-                    ROS_DEBUG_THROTTLE(60, "Takes %f sec for building map", (ros::WallTime::now() - t1).toSec());
+                    ROS_INFO( "Takes %f sec for building map", (ros::WallTime::now() - t1).toSec());
 
                     // Publish the dilated map for visualization
                     map.header = header;
@@ -509,6 +505,7 @@ int main(int argc, char **argv) {
                     }
                     feedback_.success = valid;
                     feedback_.total_time = traj_time;
+                    ROS_ERROR("SENDING FEEDBACK NOW: %f", ros::WallTime::now().toSec());
                     server.publishFeedback(feedback_);
                 }
             }

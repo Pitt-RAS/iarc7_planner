@@ -18,7 +18,7 @@ planner_update_frequency : 60.0
 arena:
     max_x: 20.0 # meters
     max_y: 20.0 # meters
-    max_z: 3.0 # meters
+    max_z: 4.0 # meters
 
     min_x: 0.0 # meters
     min_y: 0.0 # meters
