@@ -12,10 +12,8 @@ u_max: 20.0
 # Minimum height for any XY translationanl maneuvers, meters
 min_maneuver_height: 0.3
 
-# pos, vel, accel tolerances
-p_tol: 0.2
-v_tol: 0.2
-a_tol: 0.5
+# pose tolerances
+p_tol: 0.05
 
 # offset to account for coordinate frame differences
 coordinate_offset: 10

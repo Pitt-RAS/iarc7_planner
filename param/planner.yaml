@@ -4,7 +4,7 @@
 transform_timeout       : 0.2
 
 # update frequency
-planner_update_frequency : 60.0
+planner_update_frequency : 50.0
 
 # The flags use_xxx will adapt the planning in different control space
 # taken from motion primitive library README
