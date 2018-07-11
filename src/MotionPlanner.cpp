@@ -259,7 +259,6 @@ int main(int argc, char **argv) {
 
     // Run until ROS says we need to shutdown
     while (ros::ok()) {
-        ROS_ERROR("PLANNER NODE RESTARTING UP");
         // Check the safety client before updating anything
         // there is no safety response for this node, so
         // shut down.
@@ -300,7 +299,7 @@ int main(int argc, char **argv) {
                                kinematic_constraints,
                                max_arena_limits,
                                min_arena_limits)) {
-                    ROS_ERROR("Planner aborting requested gaol");
+                    ROS_ERROR("Planner aborting requested goal");
                     server.setAborted();
                     state = PlannerState::WAITING;
                 } else {
@@ -487,12 +486,10 @@ int main(int argc, char **argv) {
                 }
                 result_.success = valid;
                 result_.total_time = traj_time;
-                ROS_ERROR("SETTING SUCEEDED IN MP");
                 server.setSucceeded(result_);
                 state = PlannerState::WAITING;
             }
         }
-        ROS_ERROR("UPDATE IS DONE");
         // Handle all ROS callbacks
         ros::spinOnce();
         rate.sleep();
