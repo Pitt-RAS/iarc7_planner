@@ -303,7 +303,7 @@ int main(int argc, char **argv) {
                     server.setAborted();
                     state = PlannerState::WAITING;
                 } else {
-                    ROS_INFO("New goal accepted by planner, now map");
+                    ROS_DEBUG_THROTTLE(30,"New goal accepted by planner, now map");
                 }
 
                 state = PlannerState::PLANNING;
@@ -346,19 +346,19 @@ int main(int argc, char **argv) {
                     float pipe_radius = obstacle.pipe_radius;
                     float pipe_height = obstacle.pipe_height;
                     float pipe_x = (obstacle.odom.pose.pose.position.x +
-                                coordinate_offset)/map_res;
+                                coordinate_offset);
                     float pipe_y = (obstacle.odom.pose.pose.position.y +
-                                coordinate_offset)/map_res;
+                                coordinate_offset);
                     float px, py, pz;
                     for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
                         for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
-                            for (float r = pipe_radius - map_res; r < pipe_radius; r += map_res) {
+                            for (float r = 0; r < pipe_radius; r += map_res) {
                                 px = r * std::cos(theta) + pipe_x + voxel_map_origin[0] + .5;
                                 py = r * std::sin(theta) + pipe_y + voxel_map_origin[1] + .5;
                                 geometry_msgs::Point32 point;
                                 point.x = px;
                                 point.y = py;
-                                point.z = pz + .5;
+                                point.z = std::min(max_arena_limits[2], pz + .5);
                                 cloud.points.push_back(point);
                             }
                         }
@@ -386,7 +386,7 @@ int main(int argc, char **argv) {
 
                 map_util->setMap(ori, dim, map.data, map_res);
 
-                ROS_DEBUG_THROTTLE(30, "Takes %f sec for building map",
+                ROS_INFO("Takes %f sec for building map",
                     (ros::WallTime::now() - t1).toSec());
 
                 // Publish the dilated map for visualization

@@ -4,7 +4,7 @@ project(iarc7_planner)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror ${CMAKE_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS_DEBUG"${CMAKE_CXX_FLAGS_DEBUG} -DROS_ASSERT_ENABLED")
+set(CMAKE_CXX_FLAGS_RELEASE"${CMAKE_CXX_FLAGS_RELEASE} -DROS_ASSERT_ENABLED")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
