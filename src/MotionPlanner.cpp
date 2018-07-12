@@ -386,7 +386,7 @@ int main(int argc, char **argv) {
 
                 map_util->setMap(ori, dim, map.data, map_res);
 
-                ROS_INFO("Takes %f sec for building map",
+                ROS_DEBUG_THROTTLE(30, "Takes %f sec for building map",
                     (ros::WallTime::now() - t1).toSec());
 
                 // Publish the dilated map for visualization
