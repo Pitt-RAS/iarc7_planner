@@ -353,8 +353,8 @@ int main(int argc, char **argv) {
                     for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
                         for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
                             for (float r = 0; r < pipe_radius; r += map_res) {
-                                px = r * std::cos(theta) + pipe_x + voxel_map_origin[0] + .5;
-                                py = r * std::sin(theta) + pipe_y + voxel_map_origin[1] + .5;
+                                px = r * std::cos(theta) + pipe_x + voxel_map_origin[0];
+                                py = r * std::sin(theta) + pipe_y + voxel_map_origin[1];
                                 geometry_msgs::Point32 point;
                                 point.x = px;
                                 point.y = py;
