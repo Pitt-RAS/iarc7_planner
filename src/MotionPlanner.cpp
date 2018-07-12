@@ -447,8 +447,6 @@ int main(int argc, char **argv) {
 
             if (!valid) {
                 ROS_WARN("Planner failed and took %f sec for planning", (ros::WallTime::now() - t0).toSec());
-                result_.success = valid;
-                server.setSucceeded(result_);
             } else {
                 ROS_INFO("Succeeded and took %f sec for planning, expand [%zu] nodes",
                     (ros::WallTime::now() - t0).toSec(), planner->getCloseSet().size());
