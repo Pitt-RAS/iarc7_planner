@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
     // Required by ROS before calling many functions
     ros::init(argc, argv, "Motion_Planner");
 
-    ROS_INFO("Motion_Planner begin");
+    ROS_INFO("Motion Planner begin");
 
     // Create a node handle for the node
     ros::NodeHandle nh;
@@ -110,26 +110,47 @@ int main(int argc, char **argv) {
     Server server(nh, "planner_request", false);
     server.start();
 
-    // LOAD PARAMETERS
+    /******** LOAD PARAMETERS ********/
 
     // node update frequency
-    double update_frequency = 20;
+    double update_frequency = 50.0;
 
-    // settings for planner
+    // offset for coordinate frame differences with HLM
+    double coordinate_offset = 10.0;
+
+    // max total planning time
+    double max_planning_time = .300;
+
+    // radius of drone in meters
+    double drone_radius = .625;
+
+    // safety buffer to stay away from obstacles
+    double obst_buffer = .20;
+
+    /******** SETTINGS FOR PLANNER ********/
 
     // min and max arena limits
-    double max_arena_limits[3] = {20, 20, 20};
+    double max_arena_limits[3] = {20, 20, 4};
     double min_arena_limits[3] = {0, 0, 0};
 
     // speed, acceleration, jerk limits
-    double kinematic_constraints[3] = {3, 5, 15};
+    double kinematic_constraints[3] = {3, 3, 15};
 
     // pose tolerances
     double pose_tol = .05;
 
-    double dt = .26;
+    // min and max time discretization
+    double min_dt = .05;
+    double max_dt = .15;
+
+    // max time steps
+    int ndt = 1000;
+
+    // greedy param, epsilon
     double eps = 10;
-    double u_max = 20;
+
+    // max for control space
+    double u_max = 15;
 
     // resolution to generate map at
     double map_res = .25;
@@ -137,31 +158,40 @@ int main(int argc, char **argv) {
     // samples per sec for generating waypoints
     double samples_per_sec = 50;
 
-    double coordinate_offset = 10;
-
+    // max num of expansions
     int max_num = 5000;
-    int num = 1;
-    int ndt = 1000;
 
+    // control discretization
+    int num = 1;
+
+    // controls which space to plan in
     bool use_pos = true;
     bool use_vel = true;
     bool use_acc = true;
     bool use_jrk = false;
 
+    // control space
     vec_Vec3f U;
 
     // Update frequency retrieve
     ROS_ASSERT(private_nh.getParam("planner_update_frequency", update_frequency));
 
+    // max total planning time
+    ROS_ASSERT(private_nh.getParam("planning_timeout", max_planning_time));
+
+    // used for obstacle dilation
+    ROS_ASSERT(private_nh.getParam("radius", drone_radius));
+    ROS_ASSERT(private_nh.getParam("buffer", obst_buffer));
+
     // max x, y, z arena limits
-    ROS_ASSERT(private_nh.getParam("arena/max_x", max_arena_limits[0]));
-    ROS_ASSERT(private_nh.getParam("arena/max_y", max_arena_limits[1]));
-    ROS_ASSERT(private_nh.getParam("arena/max_z", max_arena_limits[2]));
+    ROS_ASSERT(private_nh.getParam("/arena/max_x", max_arena_limits[0]));
+    ROS_ASSERT(private_nh.getParam("/arena/max_y", max_arena_limits[1]));
+    ROS_ASSERT(private_nh.getParam("/arena/max_z", max_arena_limits[2]));
 
     // min x, y, z arena limits
-    ROS_ASSERT(private_nh.getParam("arena/min_x", min_arena_limits[0]));
-    ROS_ASSERT(private_nh.getParam("arena/min_y", min_arena_limits[1]));
-    ROS_ASSERT(private_nh.getParam("arena/min_z", min_arena_limits[2]));
+    ROS_ASSERT(private_nh.getParam("/arena/min_x", min_arena_limits[0]));
+    ROS_ASSERT(private_nh.getParam("/arena/min_y", min_arena_limits[1]));
+    ROS_ASSERT(private_nh.getParam("/arena/min_z", min_arena_limits[2]));
 
     // resolution to generate map at
     ROS_ASSERT(private_nh.getParam("map_res", map_res));
@@ -171,15 +201,16 @@ int main(int argc, char **argv) {
     ROS_ASSERT(private_nh.getParam("max_acceleration", kinematic_constraints[1]));
     ROS_ASSERT(private_nh.getParam("max_jerk", kinematic_constraints[2]));
 
-    // time discretization for each primitive
-    ROS_ASSERT(private_nh.getParam("dt", dt));
+    // min/max time discretization for each primitive
+    ROS_ASSERT(private_nh.getParam("min_dt", min_dt));
+    ROS_ASSERT(private_nh.getParam("max_dt", max_dt));
 
     ROS_ASSERT(private_nh.getParam("use_pos", use_pos));
     ROS_ASSERT(private_nh.getParam("use_vel", use_vel));
     ROS_ASSERT(private_nh.getParam("use_acc", use_acc));
     ROS_ASSERT(private_nh.getParam("use_jrk", use_jrk));
 
-    // ndt*dt is the planning horizon
+    // ndt*dt is the max plan length, in seconds
     ROS_ASSERT(private_nh.getParam("ndt", ndt));
 
     // Epsilon: greedy param
@@ -187,9 +218,6 @@ int main(int argc, char **argv) {
 
     // control discretization
     ROS_ASSERT(private_nh.getParam("num", num));
-
-    // max for control space
-    ROS_ASSERT(private_nh.getParam("u_max", u_max));
 
     // maximum number of allowed expansion
     ROS_ASSERT(private_nh.getParam("max_num", max_num));
@@ -200,7 +228,14 @@ int main(int argc, char **argv) {
     // correction for obstacle-planner coordinate frame differences
     ROS_ASSERT(private_nh.getParam("coordinate_offset", coordinate_offset));
 
+    // number of samples per second to sample trajectory at
     ROS_ASSERT(private_nh.getParam("samples_per_sec", samples_per_sec));
+
+    // max jerk is u max
+    u_max = kinematic_constraints[2];
+
+    // final obstacle dilation buffer
+    double buffer = drone_radius + obst_buffer;
 
     const decimal_t du = u_max / num;
     for (decimal_t dx = -u_max; dx <= u_max; dx += du) {
@@ -224,13 +259,7 @@ int main(int argc, char **argv) {
     // map util
     std::shared_ptr<MPL::VoxelMapUtil> map_util(new MPL::VoxelMapUtil);
 
-    // debug publishers
-    ros::Publisher map_pub = nh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
-    ros::Publisher traj_pub = nh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
-    ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud>("cloud", 1, true);
-
     // subscribe to obstacle topic
-
     boost::shared_ptr<const iarc7_msgs::ObstacleArray> last_msg;
     boost::function<void(const boost::shared_ptr<const iarc7_msgs::ObstacleArray>&)> obstacle_callback =
         [&](const boost::shared_ptr<const iarc7_msgs::ObstacleArray>& msg) -> void {
@@ -239,7 +268,7 @@ int main(int argc, char **argv) {
                 new_obstacle_available = true;
 
             } else {
-                ROS_ERROR("Bad stamp on obstacle message");
+                ROS_ERROR("Motion Planner: bad stamp on obstacle message");
             }
         };
     ros::Subscriber obstacle_sub = nh.subscribe("obstacles", 2, obstacle_callback);
@@ -262,9 +291,8 @@ int main(int argc, char **argv) {
         // Check the safety client before updating anything
         // there is no safety response for this node, so
         // shut down.
-
-        ROS_ASSERT_MSG(!safety_client.isFatalActive(), "motion_planner: fatal event from safety");
-        ROS_ASSERT_MSG(!safety_client.isSafetyActive(), "Motion_Planner shutdown due to safety active");
+        ROS_ASSERT_MSG(!safety_client.isFatalActive(), "MotionPlanner: fatal event from safety");
+        ROS_ASSERT_MSG(!safety_client.isSafetyActive(), "MotionPlanner shutdown due to safety active");
 
         // goal was canceled
         if (server.isPreemptRequested() &&
@@ -352,13 +380,13 @@ int main(int argc, char **argv) {
                     float px, py, pz;
                     for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
                         for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
-                            for (float r = 0; r < pipe_radius; r += map_res) {
+                            for (float r = 0; r < (pipe_radius + buffer); r += map_res) {
                                 px = r * std::cos(theta) + pipe_x + voxel_map_origin[0];
                                 py = r * std::sin(theta) + pipe_y + voxel_map_origin[1];
                                 geometry_msgs::Point32 point;
                                 point.x = px;
                                 point.y = py;
-                                point.z = std::min(max_arena_limits[2], pz + .5);
+                                point.z = std::min(max_arena_limits[2], pz + buffer);
                                 cloud.points.push_back(point);
                             }
                         }
@@ -388,10 +416,6 @@ int main(int argc, char **argv) {
 
                 ROS_DEBUG_THROTTLE(30, "Takes %f sec for building map",
                     (ros::WallTime::now() - t1).toSec());
-
-                // Publish the dilated map for visualization
-                map.header = header;
-                map_pub.publish(map);
 
                 last_map = map;
 
@@ -428,32 +452,50 @@ int main(int argc, char **argv) {
             goal.use_acc = use_acc;
             goal.use_jrk = use_jrk;
 
-            std::unique_ptr<MPMap3DUtil> planner;
-            planner.reset(new MPMap3DUtil(false));
-            planner->setMapUtil(map_util);
-            planner->setEpsilon(eps);
-            planner->setVmax(kinematic_constraints[0]);
-            planner->setAmax(kinematic_constraints[1]);
-            planner->setUmax(kinematic_constraints[2]);
-            planner->setDt(dt);
-            planner->setTmax(ndt * dt);
-            planner->setMaxNum(max_num);
-            planner->setU(U);
-            planner->setTol(pose_tol);
+            double dt = max_dt;
+            bool done_planning = false;
+            bool valid_plan = false;
 
-            // now we can plan
-            ros::WallTime t0 = ros::WallTime::now();
-            bool valid = planner->plan(start, goal);
+            Trajectory<3> traj;
 
-            if (!valid) {
-                ROS_WARN("Planner failed and took %f sec for planning", (ros::WallTime::now() - t0).toSec());
+            ros::Time time_start = ros::Time::now();
+            ros::Time time_done = time_start + ros::Duration(max_planning_time);
+
+            while (dt >= min_dt && ros::ok() && !done_planning) {
+                std::unique_ptr<MPMap3DUtil> planner;
+                planner.reset(new MPMap3DUtil(false));
+                planner->setMapUtil(map_util);
+                planner->setEpsilon(eps);
+                planner->setVmax(kinematic_constraints[0]);
+                planner->setAmax(kinematic_constraints[1]);
+                planner->setUmax(kinematic_constraints[2]);
+                planner->setDt(dt);
+                planner->setTmax(ndt * dt);
+                planner->setMaxNum(max_num);
+                planner->setU(U);
+                planner->setTol(pose_tol);
+
+                // now we can plan
+                ros::Time t0 = ros::Time::now();
+                bool valid = planner->plan(start, goal);
+                ros::Duration planning_time = (ros::Time::now() - t0);
+
+                if (valid) {
+                    traj = planner->getTraj();
+                    valid_plan = true;
+                }
+
+                done_planning = (done_planning && ((ros::Time::now() + planning_time) < time_done));
+                dt = dt - .05;
+            }
+
+            if (!valid_plan) {
+                ROS_ERROR("Planner failed to find any plan!");
+                result_.success = valid_plan;
+                server.setSucceeded(result_);
+                state = PlannerState::WAITING;
             } else {
-                ROS_INFO("Succeeded and took %f sec for planning, expand [%zu] nodes",
-                    (ros::WallTime::now() - t0).toSec(), planner->getCloseSet().size());
-
                 // convert trajectory to motion points
-                auto traj = planner->getTraj();
-
                 double traj_time = traj.getTotalTime();
                 double n_samples = samples_per_sec * traj_time;
 
@@ -482,7 +524,7 @@ int main(int argc, char **argv) {
                     result_.plan.motion_points.push_back(m_point);
                     time_point = time_point + t_step;
                 }
-                result_.success = valid;
+                result_.success = valid_plan;
                 result_.total_time = traj_time;
                 server.setSucceeded(result_);
                 state = PlannerState::WAITING;
