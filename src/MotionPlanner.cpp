@@ -113,123 +113,127 @@ int main(int argc, char **argv) {
     /******** LOAD PARAMETERS ********/
 
     // node update frequency
-    double update_frequency = 50.0;
+    double update_frequency;
 
     // offset for coordinate frame differences with HLM
-    double coordinate_offset = 10.0;
+    double coordinate_offset;
 
     // max total planning time
-    double max_planning_time = .300;
+    double max_planning_time;
 
     // radius of drone in meters
-    double drone_radius = .625;
+    double drone_radius;
 
     // safety buffer to stay away from obstacles
-    double obst_buffer = .20;
+    double obst_buffer;
 
     /******** SETTINGS FOR PLANNER ********/
 
     // min and max arena limits
-    double max_arena_limits[3] = {20, 20, 4};
-    double min_arena_limits[3] = {0, 0, 0};
+    double max_arena_limits[3];
+    double min_arena_limits[3];
 
     // speed, acceleration, jerk limits
-    double kinematic_constraints[3] = {3, 3, 15};
+    double kinematic_constraints[3];
 
-    // pose tolerances
-    double pose_tol = .05;
+    // tolerances
+    double pose_tol;
+    double vel_tol;
+    double accel_tol;
 
     // min and max time discretization
-    double min_dt = .05;
-    double max_dt = .15;
+    double min_dt;
+    double max_dt;
 
     // max time steps
-    int ndt = 1000;
+    int ndt;
 
     // greedy param, epsilon
-    double eps = 10;
+    double eps;
 
     // max for control space
-    double u_max = 15;
+    double u_max;
 
     // resolution to generate map at
-    double map_res = .25;
+    double map_res;
 
     // samples per sec for generating waypoints
-    double samples_per_sec = 50;
+    double samples_per_sec;
 
     // max num of expansions
-    int max_num = 5000;
+    int max_num;
 
     // control discretization
-    int num = 1;
+    int num;
 
     // controls which space to plan in
-    bool use_pos = true;
-    bool use_vel = true;
-    bool use_acc = true;
-    bool use_jrk = false;
+    bool use_pos;
+    bool use_vel;
+    bool use_acc;
+    bool use_jrk;
 
     // control space
     vec_Vec3f U;
 
     // Update frequency retrieve
-    ROS_ASSERT(private_nh.getParam("planner_update_frequency", update_frequency));
+    private_nh.param("planner_update_frequency", update_frequency, 50.0);
 
     // max total planning time
-    ROS_ASSERT(private_nh.getParam("planning_timeout", max_planning_time));
+    private_nh.param("planning_timeout", max_planning_time, 0.150);
 
     // used for obstacle dilation
-    ROS_ASSERT(private_nh.getParam("radius", drone_radius));
-    ROS_ASSERT(private_nh.getParam("buffer", obst_buffer));
+    private_nh.param("radius", drone_radius, 1.0);
+    private_nh.param("buffer", obst_buffer, 1.0);
 
     // max x, y, z arena limits
-    ROS_ASSERT(private_nh.getParam("/arena/max_x", max_arena_limits[0]));
-    ROS_ASSERT(private_nh.getParam("/arena/max_y", max_arena_limits[1]));
-    ROS_ASSERT(private_nh.getParam("/arena/max_z", max_arena_limits[2]));
+    private_nh.param("/arena/max_x", max_arena_limits[0], 0.0);
+    private_nh.param("/arena/max_y", max_arena_limits[1], 0.0);
+    private_nh.param("/arena/max_z", max_arena_limits[2], 0.0);
 
     // min x, y, z arena limits
-    ROS_ASSERT(private_nh.getParam("/arena/min_x", min_arena_limits[0]));
-    ROS_ASSERT(private_nh.getParam("/arena/min_y", min_arena_limits[1]));
-    ROS_ASSERT(private_nh.getParam("/arena/min_z", min_arena_limits[2]));
+    private_nh.param("/arena/min_x", min_arena_limits[0], 0.0);
+    private_nh.param("/arena/min_y", min_arena_limits[1], 0.0);
+    private_nh.param("/arena/min_z", min_arena_limits[2], 0.0);
 
     // resolution to generate map at
-    ROS_ASSERT(private_nh.getParam("map_res", map_res));
+    private_nh.param("map_res", map_res, .25);
 
     // speed, acceleration, jerk limits
-    ROS_ASSERT(private_nh.getParam("max_speed", kinematic_constraints[0]));
-    ROS_ASSERT(private_nh.getParam("max_acceleration", kinematic_constraints[1]));
-    ROS_ASSERT(private_nh.getParam("max_jerk", kinematic_constraints[2]));
+    private_nh.param("max_speed", kinematic_constraints[0], 0.0);
+    private_nh.param("max_acceleration", kinematic_constraints[1], 0.0);
+    private_nh.param("max_jerk", kinematic_constraints[2], 0.0);
 
     // min/max time discretization for each primitive
-    ROS_ASSERT(private_nh.getParam("min_dt", min_dt));
-    ROS_ASSERT(private_nh.getParam("max_dt", max_dt));
+    private_nh.param("min_dt", min_dt, 0.05);
+    private_nh.param("max_dt", max_dt, 0.15);
 
-    ROS_ASSERT(private_nh.getParam("use_pos", use_pos));
-    ROS_ASSERT(private_nh.getParam("use_vel", use_vel));
-    ROS_ASSERT(private_nh.getParam("use_acc", use_acc));
-    ROS_ASSERT(private_nh.getParam("use_jrk", use_jrk));
+    private_nh.param("use_pos", use_pos, true);
+    private_nh.param("use_vel", use_vel, true);
+    private_nh.param("use_acc", use_acc, true);
+    private_nh.param("use_jrk", use_jrk, false);
 
     // ndt*dt is the max plan length, in seconds
-    ROS_ASSERT(private_nh.getParam("ndt", ndt));
+    private_nh.param("ndt", ndt, 1000);
 
     // Epsilon: greedy param
-    ROS_ASSERT(private_nh.getParam("eps", eps));
+    private_nh.param("eps", eps, 10.0);
 
     // control discretization
-    ROS_ASSERT(private_nh.getParam("num", num));
+    private_nh.param("num", num, 1);
 
     // maximum number of allowed expansion
-    ROS_ASSERT(private_nh.getParam("max_num", max_num));
+    private_nh.param("max_num", max_num, 1000);
 
-    // position tolerances
-    ROS_ASSERT(private_nh.getParam("p_tol", pose_tol));
+    // tolerances
+    private_nh.param("p_tol", pose_tol, .075);
+    private_nh.param("vel_tol", vel_tol, .1);
+    private_nh.param("accel_tol", accel_tol, .15);
 
     // correction for obstacle-planner coordinate frame differences
-    ROS_ASSERT(private_nh.getParam("coordinate_offset", coordinate_offset));
+    private_nh.param("coordinate_offset", coordinate_offset, 10.0);
 
     // number of samples per second to sample trajectory at
-    ROS_ASSERT(private_nh.getParam("samples_per_sec", samples_per_sec));
+    private_nh.param("samples_per_sec", samples_per_sec, 50.0);
 
     // max jerk is u max
     u_max = kinematic_constraints[2];
@@ -473,7 +477,7 @@ int main(int argc, char **argv) {
                 planner->setTmax(ndt * dt);
                 planner->setMaxNum(max_num);
                 planner->setU(U);
-                planner->setTol(pose_tol);
+                planner->setTol(pose_tol, vel_tol, accel_tol);
 
                 // now we can plan
                 ros::Time t0 = ros::Time::now();

@@ -10,8 +10,10 @@ max_jerk: 15.0 # m/s^3
 # Minimum height for any XY translationanl maneuvers, meters
 min_maneuver_height: 0.3
 
-# pose tolerances
-p_tol: 0.05
+# tolerances
+p_tol: 0.075
+vel_tol: 0.10
+accel_tol: 0.15
 
 # offset to account for coordinate frame differences
 coordinate_offset: 10

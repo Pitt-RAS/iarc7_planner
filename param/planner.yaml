@@ -4,7 +4,7 @@
 transform_timeout       : 0.2
 
 # timeout for getting a successful plan
-planning_timeout: .300
+planning_timeout: .150
 
 # update frequency
 planner_update_frequency : 50.0
@@ -43,4 +43,4 @@ max_num: 1000
 map_res: .25
 
 # samples per sec for generating waypoints
-samples_per_sec: 50
+samples_per_sec: 50.0
