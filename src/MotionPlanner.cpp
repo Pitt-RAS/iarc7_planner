@@ -456,7 +456,6 @@ int main(int argc, char **argv) {
             goal.use_acc = use_acc;
             goal.use_jrk = use_jrk;
 
-            double dt = max_dt;
             bool done_planning = false;
             bool valid_plan = false;
 
@@ -464,6 +463,9 @@ int main(int argc, char **argv) {
 
             ros::Time time_start = ros::Time::now();
             ros::Time time_done = time_start + ros::Duration(max_planning_time);
+
+            int i = 0;
+            double dt = max_dt-i*.05;
 
             while (dt >= min_dt && ros::ok() && !done_planning) {
                 std::unique_ptr<MPMap3DUtil> planner;
@@ -474,7 +476,7 @@ int main(int argc, char **argv) {
                 planner->setAmax(kinematic_constraints[1]);
                 planner->setUmax(kinematic_constraints[2]);
                 planner->setDt(dt);
-                planner->setTmax(ndt * dt);
+                planner->setTmax(ndt*dt);
                 planner->setMaxNum(max_num);
                 planner->setU(U);
                 planner->setTol(pose_tol, vel_tol, accel_tol);
@@ -487,10 +489,13 @@ int main(int argc, char **argv) {
                 if (valid) {
                     traj = planner->getTraj();
                     valid_plan = true;
+                    done_planning = ((ros::Time::now() + planning_time) < time_done);
+                } else {
+                    done_planning = true;
                 }
 
-                done_planning = (done_planning && ((ros::Time::now() + planning_time) < time_done));
-                dt = dt - .05;
+                i++;
+                dt = max_dt-i*.05;
             }
 
             if (!valid_plan) {
