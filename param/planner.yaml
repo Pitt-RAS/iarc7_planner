@@ -1,8 +1,5 @@
 # PARAMS FOR GRAPH SEARCH PLANNER
 
-# Timeout for transforms
-transform_timeout       : 0.2
-
 # timeout for getting a successful plan
 planning_timeout: .100
 
@@ -24,7 +21,7 @@ use_acc: true
 use_jrk: false
 
 # min/max time discretization for each primitive
-min_dt: 0.05
+min_dt: 0.10
 max_dt: 0.20
 
 # max number of time discretization for a plan
@@ -37,7 +34,7 @@ eps: 10.0
 num: 1
 
 # maximum number of allowed expansion; -1 means no limit
-max_num: 1000
+max_num: 1500
 
 # resolution to generate map at
 map_res: .25
