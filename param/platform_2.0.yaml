@@ -1,6 +1,6 @@
 # Params for drone size for planner
-radius: 0.7 # meters
-buffer: 0.5 # meters
+radius: 0.675 # meters
+buffer: 0.325 # meters
 
 # kinematic constraints
 max_speed: 0.75 # m/s
@@ -11,6 +11,3 @@ max_jerk: 7.5 # m/s^3
 p_tol: 0.1
 vel_tol: 0.15
 accel_tol: 0.25
-
-# offset to account for coordinate frame differences
-coordinate_offset: 10

@@ -113,9 +113,6 @@ int main(int argc, char **argv) {
     // node update frequency
     double update_frequency;
 
-    // offset for coordinate frame differences with HLM
-    double coordinate_offset;
-
     // max total planning time
     double max_planning_time;
 
@@ -227,9 +224,6 @@ int main(int argc, char **argv) {
     private_nh.param("vel_tol", vel_tol, .1);
     private_nh.param("accel_tol", accel_tol, .15);
 
-    // correction for obstacle-planner coordinate frame differences
-    private_nh.param("coordinate_offset", coordinate_offset, 10.0);
-
     // number of samples per second to sample trajectory at
     private_nh.param("samples_per_sec", samples_per_sec, 50.0);
 
@@ -253,9 +247,6 @@ int main(int argc, char **argv) {
     Point pose_goal, pose_start;
     Vector3 twist_goal, twist_start;
     Vector3 accel_goal, accel_start;
-
-    // map util
-    std::shared_ptr<MPL::VoxelMapUtil> map_util(new MPL::VoxelMapUtil);
 
     // subscribe to obstacle topic
     boost::shared_ptr<const iarc7_msgs::ObstacleArray> last_msg;
@@ -305,12 +296,12 @@ int main(int argc, char **argv) {
                 // planning goal
                 goal_ = server.acceptNewGoal();
 
-                // offset by coordinate frame minus start pose so that we never "go out" of arena
-                double x_offset = coordinate_offset - goal_->start.motion_point.pose.position.x;
-                double y_offset = coordinate_offset - goal_->start.motion_point.pose.position.y;
+                // offset by start pose so that we never "go out" of arena
+                double x_offset = -goal_->start.motion_point.pose.position.x;
+                double y_offset = -goal_->start.motion_point.pose.position.y;
 
-                pose_start.x = goal_->start.motion_point.pose.position.x + x_offset;
-                pose_start.y = goal_->start.motion_point.pose.position.y + y_offset;
+                pose_start.x = 0.0;
+                pose_start.y = 0.0;
                 pose_start.z = goal_->start.motion_point.pose.position.z;
 
                 twist_start = goal_->start.motion_point.twist.linear;
@@ -337,10 +328,6 @@ int main(int argc, char **argv) {
 
                     ros::WallTime t1 = ros::WallTime::now();
 
-                    // Standard header
-                    std_msgs::Header header;
-                    header.frame_id = std::string("map");
-
                     planning_ros_msgs::VoxelMap map;
                     map.resolution = map_res;
                     map.origin.x = min_arena_limits[0]/map_res;
@@ -352,41 +339,29 @@ int main(int argc, char **argv) {
                     std::vector<int8_t> data(map.dim.x * map.dim.y * map.dim.z, 0);
                     map.data = data;
 
-                    sensor_msgs::PointCloud cloud;
-
-                    // Generate cloud from obstacle data
-                    cloud.header.stamp = ros::Time::now();
-                    cloud.header.frame_id = "cloud";
-                    cloud.channels.resize(1);
-
                     std::array<decimal_t, 3> voxel_map_origin =
                         {map.origin.x, map.origin.y, map.origin.z};
 
+                    vec_Vec3f pts;
+
                     for (auto& obstacle : last_msg->obstacles) {
                         // Map each obstacle to the cloud
-                        float pipe_radius = obstacle.pipe_radius;
+                        float pipe_radius = obstacle.pipe_radius + buffer;
                         float pipe_height = obstacle.pipe_height;
                         float pipe_x = (obstacle.odom.pose.pose.position.x + x_offset);
                         float pipe_y = (obstacle.odom.pose.pose.position.y + y_offset);
                         float px, py, pz;
                         for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
                             for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
-                                for (float r = 0; r < (pipe_radius + buffer); r += map_res) {
+                                for (float r = 0; r < pipe_radius; r += map_res) {
                                     px = r * std::cos(theta) + pipe_x + voxel_map_origin[0];
                                     py = r * std::sin(theta) + pipe_y + voxel_map_origin[1];
-                                    if (!(px<0.0 || py<0.0)) {
-                                        geometry_msgs::Point32 point;
-                                        point.x = px;
-                                        point.y = py;
-                                        point.z = std::min(max_arena_limits[2], pz + buffer);
-                                        cloud.points.push_back(point);
-                                    }
+                                    Vec3f pt(px, py, std::min(max_arena_limits[2], pz + buffer));
+                                    pts.push_back(pt);
                                 }
                             }
                         }
                     }
-
-                    vec_Vec3f pts = cloud_to_vec(cloud);
 
                     std::array<decimal_t, 3> voxel_map_dim =
                         {map.dim.x * map_res,
@@ -399,11 +374,12 @@ int main(int argc, char **argv) {
                     voxel_grid->addCloud(pts);
                     voxel_grid->getMap(map);
 
-                    map.header = cloud.header;
-
                     // Initialize map util
                     Vec3f ori(map.origin.x, map.origin.y, map.origin.z);
                     Vec3i dim(map.dim.x, map.dim.y, map.dim.z);
+
+                    // map util
+                    std::shared_ptr<MPL::VoxelMapUtil> map_util(new MPL::VoxelMapUtil);
 
                     map_util->setMap(ori, dim, map.data, map_res);
 
