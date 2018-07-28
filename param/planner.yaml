@@ -22,7 +22,7 @@ use_jrk: false
 
 # min/max time discretization for each primitive
 min_dt: 0.10
-max_dt: 0.20
+max_dt: 0.25
 
 # max number of time discretization for a plan
 ndt: 1000

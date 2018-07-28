@@ -286,7 +286,7 @@ int main(int argc, char **argv) {
         }
 
         if (last_msg == nullptr) {
-            ROS_ERROR("MotionPlanner: No obstacle information available, can't build map");
+             ROS_DEBUG_THROTTLE(30,"MotionPlanner: No obstacle information available, can't build map");
         } else {
             // get a new goal from action server
             if (server.isNewGoalAvailable()) {
@@ -297,11 +297,11 @@ int main(int argc, char **argv) {
                 goal_ = server.acceptNewGoal();
 
                 // offset by start pose so that we never "go out" of arena
-                double x_offset = -goal_->start.motion_point.pose.position.x;
-                double y_offset = -goal_->start.motion_point.pose.position.y;
+                double x_offset = 10;
+                double y_offset = 10;
 
-                pose_start.x = 0.0;
-                pose_start.y = 0.0;
+                pose_start.x = goal_->start.motion_point.pose.position.x + x_offset;
+                pose_start.y = goal_->start.motion_point.pose.position.y + y_offset;
                 pose_start.z = goal_->start.motion_point.pose.position.z;
 
                 twist_start = goal_->start.motion_point.twist.linear;
@@ -356,7 +356,7 @@ int main(int argc, char **argv) {
                                 for (float r = 0; r < pipe_radius; r += map_res) {
                                     px = r * std::cos(theta) + pipe_x + voxel_map_origin[0];
                                     py = r * std::sin(theta) + pipe_y + voxel_map_origin[1];
-                                    Vec3f pt(px, py, std::min(max_arena_limits[2], pz + buffer));
+                                    Vec3f pt(px, py, pz);
                                     pts.push_back(pt);
                                 }
                             }
@@ -364,9 +364,9 @@ int main(int argc, char **argv) {
                     }
 
                     std::array<decimal_t, 3> voxel_map_dim =
-                        {map.dim.x * map_res,
-                         map.dim.y * map_res,
-                         map.dim.z * map_res};
+                        {max_arena_limits[0],
+                         max_arena_limits[1],
+                         max_arena_limits[2]};
 
                     std::unique_ptr<VoxelGrid> voxel_grid(
                         new VoxelGrid(voxel_map_origin, voxel_map_dim, map_res));
@@ -383,7 +383,7 @@ int main(int argc, char **argv) {
 
                     map_util->setMap(ori, dim, map.data, map_res);
 
-                    ROS_INFO("Takes %f sec for building and setting map",
+                    ROS_DEBUG_THROTTLE(30,"Takes %f sec for building and setting map",
                         (ros::WallTime::now() - t1).toSec());
 
                     iarc7_msgs::PlanResult result_;
