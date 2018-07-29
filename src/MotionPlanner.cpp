@@ -297,8 +297,8 @@ int main(int argc, char **argv) {
                 goal_ = server.acceptNewGoal();
 
                 // offset by start pose so that we never "go out" of arena
-                double x_offset = 10-goal_->start.motion_point.pose.position.x;
-                double y_offset = 10-goal_->start.motion_point.pose.position.y;
+                double x_offset = max_arena_limits[0]/2-goal_->start.motion_point.pose.position.x;
+                double y_offset = max_arena_limits[1]/2-goal_->start.motion_point.pose.position.y;
 
                 pose_start.x = goal_->start.motion_point.pose.position.x + x_offset;
                 pose_start.y = goal_->start.motion_point.pose.position.y + y_offset;
