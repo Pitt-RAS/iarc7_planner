@@ -347,11 +347,10 @@ int main(int argc, char **argv) {
                     for (auto& obstacle : last_msg->obstacles) {
                         // Map each obstacle to the cloud
                         float pipe_radius = obstacle.pipe_radius + buffer;
-                        float pipe_height = obstacle.pipe_height;
                         float pipe_x = (obstacle.odom.pose.pose.position.x + x_offset);
                         float pipe_y = (obstacle.odom.pose.pose.position.y + y_offset);
                         float px, py, pz;
-                        for (pz = voxel_map_origin[2]; pz <= pipe_height; pz += 0.1) {
+                        for (pz = voxel_map_origin[2]; pz <= max_arena_limits[2]; pz += 0.1) {
                             for (float theta = 0; theta < 2 * M_PI; theta += 0.15) {
                                 for (float r = 0; r < pipe_radius; r += map_res) {
                                     px = r * std::cos(theta) + pipe_x + voxel_map_origin[0];
