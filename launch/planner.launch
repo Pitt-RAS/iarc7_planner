@@ -3,13 +3,12 @@
     <arg name="bond_id_namespace" default="safety_bonds" />
 
     <node name="motion_planner" pkg="iarc7_planner"
-        type="motion_planner">
+        type="motion_planner" >
+
         <rosparam command="load"
             file="$(find iarc7_planner)/param/platform_$(arg platform).yaml" />
         <rosparam command="load"
             file="$(find iarc7_planner)/param/planner.yaml" />
     </node>
 
-    <param name="$(arg bond_id_namespace)/motion_planner/form_bond"
-        value="true" />
 </launch>

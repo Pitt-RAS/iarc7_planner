@@ -1,9 +1,9 @@
-# Params for planner
+# PARAMS FOR GRAPH SEARCH PLANNER
 
-# Timeout for transforms
-transform_timeout       : 0.2
+# timeout for getting a successful plan
+planning_timeout: .100
 
-# update frequency 
+# update frequency
 planner_update_frequency : 60.0
 
 # The flags use_xxx will adapt the planning in different control space
@@ -19,3 +19,25 @@ use_pos: true
 use_vel: true
 use_acc: true
 use_jrk: false
+
+# min/max time discretization for each primitive
+min_dt: 0.10
+max_dt: 0.25
+
+# max number of time discretization for a plan
+ndt: 1000
+
+# epsilon
+eps: 10.0
+
+# control discretization
+num: 1
+
+# maximum number of allowed expansion; -1 means no limit
+max_num: 1500
+
+# resolution to generate map at
+map_res: .25
+
+# samples per sec for generating waypoints
+samples_per_sec: 50.0

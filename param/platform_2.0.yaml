@@ -1,6 +1,6 @@
 # Params for drone size for planner
 radius: 0.6 # meters
-buffer: 0.1 # meters
+buffer: 2.0 # meters
 
 # kinematic constraints
 max_speed: 0.75 # m/s

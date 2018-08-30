@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(iarc7_planner)
 
+set(CMAKE_BUILD_TYPE Release)
+
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror ${CMAKE_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DROS_ASSERT_ENABLED")
+set(CMAKE_CXX_FLAGS_RELEASE"${CMAKE_CXX_FLAGS_RELEASE} -DROS_ASSERT_ENABLED")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -19,7 +21,6 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   tf2_geometry_msgs
   motion_primitive_library
-  decomp_ros_utils
   planning_ros_utils
   planning_ros_msgs
 )
@@ -114,9 +115,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
  catkin_package(
 #   INCLUDE_DIRS include
-#  LIBRARIES 
-#  CATKIN_DEPENDS 
-#  DEPENDS 
+#  LIBRARIES
+#  CATKIN_DEPENDS
+#  DEPENDS
  )
 
 ###########
